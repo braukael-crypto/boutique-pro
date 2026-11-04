@@ -8,6 +8,7 @@ import {
   MOVEMENT_STORE,
   SALES_STORE,
   CUSTOMER_STORE,
+  SETTINGS_STORE,
 } from "@/lib/boutiquepro-db";
 
 type Product = {
@@ -46,6 +47,7 @@ type Sale = {
   customerName?: string;
 };
 
+type StoreProfile = { id: "profile"; name: string; phone: string; whatsapp: string; address: string; logo?: string };
 type PaymentMethod = Sale["paymentMethod"];
 type Customer = { id: number; name: string; phone: string; address: string; createdAt: string };
 
@@ -239,7 +241,21 @@ function escapeHtml(value: string): string {
   });
 }
 
-function printReceipt(sale: Sale, format: ReceiptFormat) {
+async function printReceipt(sale: Sale, format: ReceiptFormat) {
+  const db = await openDatabase();
+  const profile = await new Promise<StoreProfile | undefined>((resolve, reject) => {
+    const transaction = db.transaction(SETTINGS_STORE, "readonly");
+    const request = transaction.objectStore(SETTINGS_STORE).get("profile");
+    request.onsuccess = () => resolve(request.result as StoreProfile | undefined);
+    request.onerror = () => reject(request.error);
+    transaction.oncomplete = () => db.close();
+    transaction.onerror = () => { db.close(); reject(transaction.error); };
+  });
+  const storeName = escapeHtml(profile?.name?.trim() || "BoutiquePro");
+  const storePhone = escapeHtml(profile?.phone?.trim() || "");
+  const storeWhatsapp = escapeHtml(profile?.whatsapp?.trim() || "");
+  const storeAddress = escapeHtml(profile?.address?.trim() || "");
+  const logoMarkup = profile?.logo ? `<img src="${profile.logo}" alt="Logo" style="display:block;max-width:100px;max-height:70px;object-fit:contain;margin:0 auto 8px;">` : "";
   const paymentLabel =
     sale.paymentMethod === "CASH"
       ? "Espèces"
@@ -343,8 +359,11 @@ function printReceipt(sale: Sale, format: ReceiptFormat) {
       </head>
       <body>
         <main class="receipt">
-          <h1>BoutiquePro</h1>
+          ${logoMarkup}<h1>${storeName}</h1>
           <p class="subtitle">REÇU DE VENTE</p>
+          ${storeAddress ? `<p class="center">${storeAddress}</p>` : ""}
+          ${storePhone ? `<p class="center">Tél. : ${storePhone}</p>` : ""}
+          ${storeWhatsapp ? `<p class="center">WhatsApp : ${storeWhatsapp}</p>` : ""}
           <section class="meta">
             <p><strong>Reçu N° :</strong> ${sale.id}</p>
             <p><strong>Date :</strong> ${new Date(sale.date).toLocaleString("fr-FR")}</p>
