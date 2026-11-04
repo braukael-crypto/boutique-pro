@@ -7,9 +7,9 @@ import { openDatabase, CUSTOMER_STORE, CREDIT_PAYMENT_STORE, SALES_STORE } from 
 type Customer = { id: number; name: string; phone: string; address: string; createdAt: string };
 type Sale = { id: number; date: string; total: number; paymentMethod: "CASH" | "MOBILE_MONEY" | "CREDIT"; customerId?: number; customerName?: string };
 type CreditPayment = { id: number; saleId: number; customerId: number; amount: number; date: string; note: string };
-type CreditBalance = { sale: Sale; paid: number; remaining: number };
 
 const money = (value: number) => `${value.toLocaleString("fr-FR")} FCFA`;
+const createId = () => Date.now();
 
 async function loadData(): Promise<[Customer[], Sale[], CreditPayment[]]> {
   const db = await openDatabase();
@@ -18,7 +18,7 @@ async function loadData(): Promise<[Customer[], Sale[], CreditPayment[]]> {
     const customers = tx.objectStore(CUSTOMER_STORE).getAll();
     const sales = tx.objectStore(SALES_STORE).getAll();
     const payments = tx.objectStore(CREDIT_PAYMENT_STORE).getAll();
-    let result: [Customer[], Sale[], CreditPayment[]] = [[], [], []];
+    const result: [Customer[], Sale[], CreditPayment[]] = [[], [], []];
     customers.onsuccess = () => { result[0] = customers.result as Customer[]; };
     sales.onsuccess = () => { result[1] = sales.result as Sale[]; };
     payments.onsuccess = () => { result[2] = payments.result as CreditPayment[]; };
@@ -113,7 +113,7 @@ export default function ClientsPage() {
     event.preventDefault(); setError(""); setSuccess("");
     if (!name.trim() || !phone.trim()) { setError("Le nom et le téléphone sont obligatoires."); return; }
     try {
-      await addCustomer({ id: Date.now(), name: name.trim(), phone: phone.trim(), address: address.trim(), createdAt: new Date().toISOString() });
+      await addCustomer({ id: createId(), name: name.trim(), phone: phone.trim(), address: address.trim(), createdAt: new Date().toISOString() });
       await refresh(); setName(""); setPhone(""); setAddress(""); setSuccess("Client enregistré avec succès.");
     } catch { setError("Impossible d'enregistrer ce client."); }
   }
@@ -123,7 +123,7 @@ export default function ClientsPage() {
     const value = Number(amount);
     if (!selected || !Number.isFinite(value) || value <= 0) { setError("Choisissez une dette et saisissez un montant valide."); return; }
     try {
-      await recordPayment({ id: Date.now(), saleId: selected.sale.id, customerId: selected.sale.customerId ?? 0, amount: value, date: new Date().toISOString(), note: note.trim() });
+      await recordPayment({ id: createId(), saleId: selected.sale.id, customerId: selected.sale.customerId ?? 0, amount: value, date: new Date().toISOString(), note: note.trim() });
       await refresh(); setSelectedSale(""); setAmount(""); setNote(""); setSuccess("Remboursement enregistré et solde recalculé.");
     } catch (err) { setError(err instanceof Error ? err.message : "Impossible d'enregistrer le remboursement."); }
   }
