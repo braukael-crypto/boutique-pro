@@ -1,9 +1,11 @@
 export const DB_NAME = "BoutiqueProDB";
-export const DB_VERSION = 3;
+export const DB_VERSION = 4;
 
 export const STORE_NAME = "products";
 export const MOVEMENT_STORE = "stockMovements";
 export const SALES_STORE = "sales";
+export const CUSTOMER_STORE = "customers";
+export const CREDIT_PAYMENT_STORE = "creditPayments";
 
 export function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -32,9 +34,32 @@ export function openDatabase(): Promise<IDBDatabase> {
         });
         salesStore.createIndex("date", "date", { unique: false });
       }
+
+      if (!db.objectStoreNames.contains(CUSTOMER_STORE)) {
+        const customerStore = db.createObjectStore(CUSTOMER_STORE, {
+          keyPath: "id",
+        });
+        customerStore.createIndex("name", "name", { unique: false });
+        customerStore.createIndex("phone", "phone", { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(CREDIT_PAYMENT_STORE)) {
+        const paymentStore = db.createObjectStore(CREDIT_PAYMENT_STORE, {
+          keyPath: "id",
+        });
+        paymentStore.createIndex("saleId", "saleId", { unique: false });
+        paymentStore.createIndex("customerId", "customerId", {
+          unique: false,
+        });
+        paymentStore.createIndex("date", "date", { unique: false });
+      }
     };
 
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
     request.onerror = () => reject(request.error);
   });
 }
