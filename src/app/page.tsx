@@ -6,7 +6,7 @@ const modules = [
   { icon: "👥", label: "Clients et crédits", href: "/clients" },
   { icon: "💰", label: "Dépenses", href: "/depenses" },
   { icon: "📊", label: "Rapports", href: "/rapports" },
-  { icon: "⚙️", label: "Paramètres" },
+  { icon: "⚙️", label: "Paramètres", href: "/parametres" },
 ];
 
 export default function Home() {
