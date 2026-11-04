@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { ChangeEvent, useEffect, useState } from "react";
 import { openDatabase, SETTINGS_STORE } from "@/lib/boutiquepro-db";
 
@@ -144,7 +145,7 @@ export default function SettingsPage() {
             <p className="text-sm font-semibold">Logo de la boutique</p>
             <input type="file" accept="image/*" onChange={handleLogo} className="mt-2 block w-full text-sm" />
             <p className="mt-1 text-xs text-slate-500">Image de 1 Mo maximum. Le logo reste enregistré sur cet appareil.</p>
-            {profile.logo && <div className="mt-3 flex items-center gap-4"><img src={profile.logo} alt="Aperçu du logo" className="h-20 w-20 rounded-xl border object-contain p-2" /><button type="button" onClick={() => setProfile((current) => ({ ...current, logo: undefined }))} className="text-sm font-semibold text-red-600">Supprimer le logo</button></div>}
+            {profile.logo && <div className="mt-3 flex items-center gap-4"><Image src={profile.logo} alt="Aperçu du logo" width={80} height={80} unoptimized className="h-20 w-20 rounded-xl border object-contain p-2" /><button type="button" onClick={() => setProfile((current) => ({ ...current, logo: undefined }))} className="text-sm font-semibold text-red-600">Supprimer le logo</button></div>}
           </div>
           <button type="button" disabled={saving} onClick={handleSave} className="mt-6 w-full rounded-xl bg-[#173B70] p-4 font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : "Enregistrer les paramètres"}</button>
           {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
