@@ -4,8 +4,8 @@ const modules = [
   { icon: "🛒", label: "Ventes", href: "/ventes" },
   { icon: "📦", label: "Produits et stock", href: "/stock" },
   { icon: "👥", label: "Clients et crédits", href: "/clients" },
-  { icon: "💰", label: "Dépenses" },
-  { icon: "📊", label: "Rapports" },
+  { icon: "💰", label: "Dépenses", href: "/depenses" },
+  { icon: "📊", label: "Rapports", href: "/rapports" },
   { icon: "⚙️", label: "Paramètres" },
 ];
 
