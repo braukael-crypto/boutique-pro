@@ -54,8 +54,8 @@ async function recordPayment(payment: CreditPayment): Promise<void> {
       request.onsuccess = () => {
         const paid = (request.result as CreditPayment[]).reduce((sum, item) => sum + item.amount, 0);
         const remaining = sale.total - paid;
-        if (!Number.isFinite(payment.amount) || payment.amount <= 0) {
-          failure = new Error("Le remboursement doit être supérieur à zéro.");
+        if (!Number.isInteger(payment.amount) || payment.amount <= 0) {
+          failure = new Error("Le remboursement doit être un montant entier supérieur à zéro.");
           tx.abort();
         } else if (payment.amount > remaining) {
           failure = new Error("Le montant dépasse le solde restant dû.");
@@ -121,7 +121,7 @@ export default function ClientsPage() {
   async function handlePayment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setError(""); setSuccess("");
     const value = Number(amount);
-    if (!selected || !Number.isFinite(value) || value <= 0) { setError("Choisissez une dette et saisissez un montant valide."); return; }
+    if (!selected || !Number.isInteger(value) || value <= 0) { setError("Choisissez une dette et saisissez un montant entier valide."); return; }
     try {
       await recordPayment({ id: createId(), saleId: selected.sale.id, customerId: selected.sale.customerId ?? 0, amount: value, date: new Date().toISOString(), note: note.trim() });
       await refresh(); setSelectedSale(""); setAmount(""); setNote(""); setSuccess("Remboursement enregistré et solde recalculé.");
