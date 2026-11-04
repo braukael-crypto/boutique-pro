@@ -3,7 +3,7 @@ import Link from "next/link";
 const modules = [
   { icon: "🛒", label: "Ventes", href: "/ventes" },
   { icon: "📦", label: "Produits et stock", href: "/stock" },
-  { icon: "👥", label: "Clients et crédits" },
+  { icon: "👥", label: "Clients et crédits", href: "/clients" },
   { icon: "💰", label: "Dépenses" },
   { icon: "📊", label: "Rapports" },
   { icon: "⚙️", label: "Paramètres" },
