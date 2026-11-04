@@ -1,5 +1,5 @@
 export const DB_NAME = "BoutiqueProDB";
-export const DB_VERSION = 5;
+export const DB_VERSION = 6;
 
 export const STORE_NAME = "products";
 export const MOVEMENT_STORE = "stockMovements";
@@ -7,6 +7,7 @@ export const SALES_STORE = "sales";
 export const CUSTOMER_STORE = "customers";
 export const CREDIT_PAYMENT_STORE = "creditPayments";
 export const EXPENSE_STORE = "expenses";
+export const SETTINGS_STORE = "settings";
 
 export function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -48,6 +49,10 @@ export function openDatabase(): Promise<IDBDatabase> {
         const expenseStore = db.createObjectStore(EXPENSE_STORE, { keyPath: "id" });
         expenseStore.createIndex("date", "date", { unique: false });
         expenseStore.createIndex("category", "category", { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
+        db.createObjectStore(SETTINGS_STORE, { keyPath: "id" });
       }
 
       if (!db.objectStoreNames.contains(CREDIT_PAYMENT_STORE)) {
