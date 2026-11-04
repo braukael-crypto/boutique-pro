@@ -7,6 +7,7 @@ import {
   STORE_NAME,
   MOVEMENT_STORE,
   SALES_STORE,
+  CUSTOMER_STORE,
 } from "@/lib/boutiquepro-db";
 
 type Product = {
@@ -44,6 +45,7 @@ type Sale = {
 };
 
 type PaymentMethod = Sale["paymentMethod"];
+type Customer = { id: number; name: string; phone: string; address: string; createdAt: string };
 
 async function getProducts(): Promise<Product[]> {
   const db = await openDatabase();
@@ -86,9 +88,13 @@ async function getSales(): Promise<Sale[]> {
 async function saveSale(
   cart: CartItem[],
   paymentMethod: PaymentMethod,
+  customer?: Customer,
 ): Promise<void> {
   if (cart.length === 0) {
     throw new Error("Ajoutez au moins un produit à la vente.");
+  }
+  if (paymentMethod === "CREDIT" && !customer) {
+    throw new Error("Sélectionnez un client pour une vente à crédit.");
   }
 
   const db = await openDatabase();
@@ -190,6 +196,9 @@ async function saveSale(
             total,
             estimatedProfit: profit,
             paymentMethod,
+            ...(paymentMethod === "CREDIT" && customer
+              ? { customerId: customer.id, customerName: customer.name }
+              : {}),
           } satisfies Sale);
         }
       };
@@ -370,6 +379,8 @@ function formatMoney(value: number): string {
 export default function SalesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState("");
   const [quantity, setQuantity] = useState("1");
@@ -386,12 +397,24 @@ export default function SalesPage() {
 
   useEffect(() => {
     let active = true;
+    const db = openDatabase();
 
-    refreshData()
-      .then(([loadedProducts, loadedSales]) => {
+    Promise.all([
+      refreshData(),
+      db.then((database) => new Promise<Customer[]>((resolve, reject) => {
+        const transaction = database.transaction(CUSTOMER_STORE, "readonly");
+        const request = transaction.objectStore(CUSTOMER_STORE).getAll();
+        request.onsuccess = () => resolve(request.result as Customer[]);
+        request.onerror = () => reject(request.error);
+        transaction.oncomplete = () => database.close();
+        transaction.onerror = () => { database.close(); reject(transaction.error); };
+      })),
+    ])
+      .then(([[loadedProducts, loadedSales], loadedCustomers]) => {
         if (!active) return;
         setProducts(loadedProducts);
         setSales(loadedSales);
+        setCustomers(loadedCustomers.sort((a, b) => a.name.localeCompare(b.name)));
       })
       .catch(() => {
         if (active) setError("Impossible de charger les données.");
@@ -511,12 +534,14 @@ export default function SalesPage() {
     setSaving(true);
 
     try {
-      await saveSale(cart, paymentMethod);
+      const customer = customers.find((item) => item.id === Number(selectedCustomer));
+      await saveSale(cart, paymentMethod, customer);
       const [loadedProducts, loadedSales] = await refreshData();
       setProducts(loadedProducts);
       setSales(loadedSales);
       setCart([]);
       setPaymentMethod("CASH");
+      setSelectedCustomer("");
       setSuccess("Vente enregistrée et stock mis à jour.");
     } catch (err) {
       setError(
@@ -681,10 +706,34 @@ export default function SalesPage() {
               </select>
             </label>
 
+            {paymentMethod === "CREDIT" && (
+              <label className="mt-4 block text-sm font-semibold">
+                Client concerné par le crédit
+                <select
+                  required
+                  value={selectedCustomer}
+                  onChange={(event) => setSelectedCustomer(event.target.value)}
+                  className="mt-1 w-full rounded-xl border border-slate-300 bg-white p-3 font-normal"
+                >
+                  <option value="">Choisir un client</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name} — {customer.phone}
+                    </option>
+                  ))}
+                </select>
+                {customers.length === 0 && (
+                  <span className="mt-2 block text-xs font-normal text-amber-700">
+                    Enregistrez d&apos;abord un client dans le module Clients et crédits.
+                  </span>
+                )}
+              </label>
+            )}
+
             <button
               type="button"
               onClick={handleSale}
-              disabled={saving}
+              disabled={saving || (paymentMethod === "CREDIT" && !selectedCustomer)}
               className="mt-4 w-full rounded-xl bg-emerald-600 p-4 font-bold text-white disabled:opacity-50"
             >
               {saving ? "Enregistrement..." : "Valider la vente"}
