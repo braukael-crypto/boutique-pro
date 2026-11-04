@@ -103,7 +103,7 @@ export default function ClientsPage() {
   const balances = useMemo(() => sales.filter((sale) => sale.paymentMethod === "CREDIT").map((sale) => {
     const paid = payments.filter((payment) => payment.saleId === sale.id).reduce((sum, payment) => sum + payment.amount, 0);
     return { sale, paid, remaining: Math.max(0, sale.total - paid) };
-  }).filter((item) => item.remaining > 0), [sales, payments]);
+  }), [sales, payments]);
 
   const selected = balances.find((item) => item.sale.id === Number(selectedSale));
   const totalDebt = balances.reduce((sum, item) => sum + item.remaining, 0);
@@ -167,7 +167,7 @@ export default function ClientsPage() {
             <label className="block text-sm font-semibold">Dette à rembourser
               <select required value={selectedSale} onChange={(e) => setSelectedSale(e.target.value)} className="mt-1 w-full rounded-xl border bg-white p-3 font-normal">
                 <option value="">Choisir une dette</option>
-                {balances.map(({ sale, remaining }) => <option key={sale.id} value={sale.id}>{sale.customerName || "Client non identifié"} · Vente #{sale.id} · {money(remaining)}</option>)}
+                {balances.filter((item) => item.remaining > 0).map(({ sale, remaining }) => <option key={sale.id} value={sale.id}>{sale.customerName || "Client non identifié"} · Vente #{sale.id} · {money(remaining)}</option>)}
               </select>
             </label>
             {selected && <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-900">Solde restant : <strong>{money(selected.remaining)}</strong></p>}
@@ -196,7 +196,7 @@ export default function ClientsPage() {
           <div className="mt-4 space-y-3">
             {balances.length === 0 && <p className="text-sm text-slate-500">Aucune dette en cours.</p>}
             {balances.map(({ sale, paid, remaining }) => <article key={sale.id} className="rounded-xl border p-4">
-              <div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{sale.customerName || "Client non identifié"}</h3><p className="text-xs text-slate-500">Vente #{sale.id} · {new Date(sale.date).toLocaleString("fr-FR")}</p></div><span className="rounded-lg bg-orange-50 px-2 py-1 text-xs font-bold text-orange-700">En cours</span></div>
+              <div className="flex items-start justify-between gap-3"><div><h3 className="font-bold">{sale.customerName || "Client non identifié"}</h3><p className="text-xs text-slate-500">Vente #{sale.id} · {new Date(sale.date).toLocaleString("fr-FR")}</p></div><span className="rounded-lg bg-orange-50 px-2 py-1 text-xs font-bold text-orange-700">{remaining > 0 ? "En cours" : "Soldé"}</span></div>
               <div className="mt-3 grid grid-cols-3 gap-2 text-xs"><p>Total<br /><strong>{money(sale.total)}</strong></p><p>Payé<br /><strong>{money(paid)}</strong></p><p>Reste<br /><strong>{money(remaining)}</strong></p></div>
               {payments.filter((payment) => payment.saleId === sale.id).map((payment) => <p key={payment.id} className="mt-2 border-t pt-2 text-xs text-slate-500">Remboursement : {money(payment.amount)} · {new Date(payment.date).toLocaleString("fr-FR")}{payment.note ? ` · ${payment.note}` : ""}</p>)}
             </article>)}
