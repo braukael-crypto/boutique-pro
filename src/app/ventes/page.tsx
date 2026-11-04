@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   openDatabase,
@@ -85,7 +86,6 @@ async function getSales(): Promise<Sale[]> {
 async function saveSale(
   cart: CartItem[],
   paymentMethod: PaymentMethod,
-  products: Product[],
 ): Promise<void> {
   if (cart.length === 0) {
     throw new Error("Ajoutez au moins un produit à la vente.");
@@ -380,20 +380,29 @@ export default function SalesPage() {
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  async function refreshData() {
-    const [loadedProducts, loadedSales] = await Promise.all([
-      getProducts(),
-      getSales(),
-    ]);
-
-    setProducts(loadedProducts);
-    setSales(loadedSales);
+  async function refreshData(): Promise<[Product[], Sale[]]> {
+    return Promise.all([getProducts(), getSales()]);
   }
 
   useEffect(() => {
+    let active = true;
+
     refreshData()
-      .catch(() => setError("Impossible de charger les données."))
-      .finally(() => setLoaded(true));
+      .then(([loadedProducts, loadedSales]) => {
+        if (!active) return;
+        setProducts(loadedProducts);
+        setSales(loadedSales);
+      })
+      .catch(() => {
+        if (active) setError("Impossible de charger les données.");
+      })
+      .finally(() => {
+        if (active) setLoaded(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const cartDetails = useMemo(
@@ -502,8 +511,10 @@ export default function SalesPage() {
     setSaving(true);
 
     try {
-      await saveSale(cart, paymentMethod, products);
-      await refreshData();
+      await saveSale(cart, paymentMethod);
+      const [loadedProducts, loadedSales] = await refreshData();
+      setProducts(loadedProducts);
+      setSales(loadedSales);
       setCart([]);
       setPaymentMethod("CASH");
       setSuccess("Vente enregistrée et stock mis à jour.");
@@ -511,7 +522,11 @@ export default function SalesPage() {
       setError(
         err instanceof Error ? err.message : "Impossible d'enregistrer la vente.",
       );
-      await refreshData().catch(() => undefined);
+      const refreshed = await refreshData().catch(() => null);
+      if (refreshed) {
+        setProducts(refreshed[0]);
+        setSales(refreshed[1]);
+      }
     } finally {
       setSaving(false);
     }
@@ -528,9 +543,9 @@ export default function SalesPage() {
   return (
     <main className="min-h-screen bg-slate-50 p-5 text-slate-800">
       <header className="rounded-2xl bg-[#173B70] p-6 text-white">
-        <a href="/" className="text-sm text-blue-100">
+        <Link href="/" className="text-sm text-blue-100">
           ← Accueil
-        </a>
+        </Link>
         <h1 className="mt-3 text-2xl font-extrabold">Module Ventes</h1>
         <p className="mt-2 text-sm text-blue-100">
           Enregistrez vos ventes et suivez vos recettes.
@@ -580,7 +595,7 @@ export default function SalesPage() {
 
         {products.length === 0 && (
           <p className="mt-3 text-sm text-amber-700">
-            Aucun produit disponible. Ajoutez d'abord des produits dans le Stock.
+            Aucun produit disponible. Ajoutez d&apos;abord des produits dans le Stock.
           </p>
         )}
 
