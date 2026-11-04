@@ -192,7 +192,7 @@ export default function ClientsPage() {
         </section>
 
         <section className="mt-5 rounded-2xl border bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold">Historique des crédits en cours</h2>
+          <h2 className="text-lg font-bold">Historique des crédits</h2>
           <div className="mt-4 space-y-3">
             {balances.length === 0 && <p className="text-sm text-slate-500">Aucune dette en cours.</p>}
             {balances.map(({ sale, paid, remaining }) => <article key={sale.id} className="rounded-xl border p-4">
