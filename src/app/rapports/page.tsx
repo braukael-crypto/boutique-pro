@@ -92,7 +92,7 @@ export default function ReportsPage() {
         <section className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
           <h2 className="text-lg font-bold">Encaissements et crédits</h2>
           <div className="mt-3 flex items-center justify-between gap-3"><span className="text-sm text-slate-500">Espèces, Mobile Money et remboursements reçus</span><strong className="text-right">{money(totals.collected)}</strong></div>
-          <p className="mt-2 text-xs text-slate-500">{totals.creditSales} vente(s) à crédit enregistrée(s). Le chiffre d&apos;affaires inclut ces ventes, mais les encaissements ne les comptent qu'au fur et à mesure des remboursements.</p>
+          <p className="mt-2 text-xs text-slate-500">{totals.creditSales} vente(s) à crédit enregistrée(s). Le chiffre d&apos;affaires inclut ces ventes, mais les encaissements ne les comptent qu&apos;au fur et à mesure des remboursements.</p>
         </section>
 
         <section className="mt-4 rounded-2xl border bg-white p-5 shadow-sm">
