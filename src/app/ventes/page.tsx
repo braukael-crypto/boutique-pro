@@ -213,7 +213,22 @@ async function saveSale(
   });
 }
 
-function printReceipt(sale: Sale) {
+type ReceiptFormat = "thermal" | "a4";
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character];
+  });
+}
+
+function printReceipt(sale: Sale, format: ReceiptFormat) {
   const paymentLabel =
     sale.paymentMethod === "CASH"
       ? "Espèces"
@@ -223,42 +238,113 @@ function printReceipt(sale: Sale) {
 
   const rows = sale.items.map((item) => `
     <tr>
-      <td>${item.productName} × ${item.quantity}</td>
+      <td>${escapeHtml(item.productName)} × ${item.quantity}</td>
       <td>${item.subtotal.toLocaleString("fr-FR")} FCFA</td>
     </tr>
   `).join("");
 
+  const isThermal = format === "thermal";
+  const pageSize = isThermal ? "80mm auto" : "A4";
+  const pageMargin = isThermal ? "3mm" : "12mm";
+  const receiptWidth = isThermal ? "74mm" : "100%";
+  const receiptMaxWidth = isThermal ? "74mm" : "700px";
+
   const receipt = `
-    <html>
+    <!doctype html>
+    <html lang="fr">
       <head>
         <meta charset="UTF-8">
-        <title>Reçu BoutiquePro</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Reçu BoutiquePro - ${sale.id}</title>
         <style>
-          body { font-family: Arial, sans-serif; padding: 24px; color: #222; }
-          .receipt { max-width: 380px; margin: auto; }
+          @page {
+            size: ${pageSize};
+            margin: ${pageMargin};
+          }
+          * { box-sizing: border-box; }
+          body {
+            margin: 0;
+            padding: 16px;
+            color: #222;
+            font-family: Arial, sans-serif;
+            font-size: ${isThermal ? "12px" : "14px"};
+          }
+          .receipt {
+            width: ${receiptWidth};
+            max-width: ${receiptMaxWidth};
+            margin: 0 auto;
+          }
           h1, .center { text-align: center; }
-          h1 { color: #173B70; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          td { padding: 10px 4px; border-bottom: 1px solid #ddd; }
-          td:last-child { text-align: right; }
-          .total { font-size: 18px; font-weight: bold; margin-top: 20px; }
-          .footer { text-align: center; margin-top: 30px; font-size: 12px; }
-          @media print { body { padding: 0; } }
+          h1 {
+            margin: 0 0 6px;
+            color: #173B70;
+            font-size: ${isThermal ? "20px" : "26px"};
+          }
+          .subtitle {
+            margin: 0 0 18px;
+            text-align: center;
+            font-weight: bold;
+            letter-spacing: 1px;
+          }
+          .meta p { margin: 5px 0; overflow-wrap: anywhere; }
+          table {
+            width: 100%;
+            margin-top: 16px;
+            border-collapse: collapse;
+          }
+          td {
+            padding: 8px 2px;
+            border-bottom: 1px dashed #bbb;
+            vertical-align: top;
+            overflow-wrap: anywhere;
+          }
+          td:last-child {
+            text-align: right;
+            white-space: nowrap;
+            padding-left: 6px;
+          }
+          .total {
+            margin-top: 16px;
+            padding-top: 10px;
+            border-top: 1px solid #222;
+            font-size: ${isThermal ? "16px" : "20px"};
+            font-weight: bold;
+            text-align: right;
+          }
+          .payment { margin-top: 12px; }
+          .footer {
+            margin-top: 24px;
+            text-align: center;
+            font-size: 11px;
+          }
+          @media screen {
+            body { background: #f1f5f9; }
+            .receipt {
+              padding: ${isThermal ? "10px" : "28px"};
+              background: white;
+            }
+          }
+          @media print {
+            body { padding: 0; }
+            .receipt { margin: 0 auto; }
+          }
         </style>
       </head>
       <body>
-        <div class="receipt">
+        <main class="receipt">
           <h1>BoutiquePro</h1>
-          <p class="center">REÇU DE VENTE</p>
-          <p>Reçu N° : ${sale.id}</p>
-          <p>Date : ${new Date(sale.date).toLocaleString("fr-FR")}</p>
+          <p class="subtitle">REÇU DE VENTE</p>
+          <section class="meta">
+            <p><strong>Reçu N° :</strong> ${sale.id}</p>
+            <p><strong>Date :</strong> ${new Date(sale.date).toLocaleString("fr-FR")}</p>
+          </section>
           <table>
-            ${rows}
+            <tbody>${rows}</tbody>
           </table>
           <p class="total">TOTAL : ${sale.total.toLocaleString("fr-FR")} FCFA</p>
-          <p>Mode de paiement : ${paymentLabel}</p>
+          <p class="payment"><strong>Mode de paiement :</strong> ${paymentLabel}</p>
           <p class="footer">Merci pour votre confiance !</p>
-        </div>
+        </main>
       </body>
     </html>
   `;
@@ -270,6 +356,7 @@ function printReceipt(sale: Sale) {
     return;
   }
 
+  printWindow.document.open();
   printWindow.document.write(receipt);
   printWindow.document.close();
   printWindow.focus();
@@ -635,13 +722,22 @@ export default function SalesPage() {
                   ))}
                 </ul>
 
-                <button
-                  type="button"
-                  onClick={() => printReceipt(sale)}
-                  className="mt-4 w-full rounded-xl border border-[#173B70] p-3 text-sm font-bold text-[#173B70]"
-                >
-                  Imprimer le reçu
-                </button>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => printReceipt(sale, "thermal")}
+                    className="rounded-xl border border-[#173B70] p-3 text-sm font-bold text-[#173B70]"
+                  >
+                    Reçu 80 mm
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => printReceipt(sale, "a4")}
+                    className="rounded-xl bg-[#173B70] p-3 text-sm font-bold text-white"
+                  >
+                    Reçu A4
+                  </button>
+                </div>
 
                 <div className="mt-3 flex justify-between border-t border-slate-100 pt-2 text-xs">
                   <span>
