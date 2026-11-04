@@ -42,6 +42,8 @@ type Sale = {
   total: number;
   estimatedProfit: number;
   paymentMethod: "CASH" | "MOBILE_MONEY" | "CREDIT";
+  customerId?: number;
+  customerName?: string;
 };
 
 type PaymentMethod = Sale["paymentMethod"];
