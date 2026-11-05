@@ -173,12 +173,12 @@ BEGIN
     RAISE EXCEPTION 'Invalid shop slug';
   END IF;
 
-  INSERT INTO public.shops (name, slug, "updatedAt")
-  VALUES (clean_name, clean_slug, now())
+  INSERT INTO public.shops (id, name, slug, "updatedAt")
+  VALUES (gen_random_uuid(), clean_name, clean_slug, now())
   RETURNING id INTO new_shop_id;
 
-  INSERT INTO public.shop_memberships (shop_id, user_id, role, "updatedAt")
-  VALUES (new_shop_id, current_user_id, 'OWNER'::public."MembershipRole", now());
+  INSERT INTO public.shop_memberships (id, shop_id, user_id, role, "updatedAt")
+  VALUES (gen_random_uuid(), new_shop_id, current_user_id, 'OWNER'::public."MembershipRole", now());
 
   RETURN new_shop_id;
 END;
