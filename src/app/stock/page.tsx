@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { openDatabase, STORE_NAME, MOVEMENT_STORE } from "@/lib/boutiquepro-db";
 
 type Product = {
@@ -336,9 +337,9 @@ export default function StockPage() {
       <div className="mx-auto max-w-5xl">
         <header className="mb-6 flex items-center justify-between">
           <div>
-            <a href="/" className="text-sm font-semibold text-blue-700">
+            <Link href="/" className="text-sm font-semibold text-blue-700">
               ← Retour au tableau de bord
-            </a>
+            </Link>
             <h1 className="mt-3 text-2xl font-extrabold text-slate-900">
               Produits et Stock
             </h1>
@@ -406,7 +407,7 @@ export default function StockPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium">Prix d'achat (FCFA)</label>
+                <label className="mb-1 block text-sm font-medium">Prix d&apos;achat (FCFA)</label>
                 <input
                   required
                   type="number"
