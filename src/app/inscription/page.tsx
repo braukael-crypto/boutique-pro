@@ -1,9 +1,10 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { signUpAction } from "@/app/auth/actions";
 
 type PageProps = { searchParams: Promise<{ erreur?: string }> };
 
-export default async function InscriptionPage({ searchParams }: PageProps) {
+async function InscriptionContent({ searchParams }: PageProps) {
   const params = await searchParams;
 
   return (
@@ -29,5 +30,13 @@ export default async function InscriptionPage({ searchParams }: PageProps) {
         <p className="mt-6 text-center text-sm text-slate-500">Vous avez déjà un compte ? <Link className="font-bold text-[#173B70]" href="/connexion">Se connecter</Link></p>
       </section>
     </main>
+  );
+}
+
+export default function InscriptionPage({ searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-slate-50 p-5 text-slate-500">Chargement du formulaire…</main>}>
+      <InscriptionContent searchParams={searchParams} />
+    </Suspense>
   );
 }
