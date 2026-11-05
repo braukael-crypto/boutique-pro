@@ -1,0 +1,205 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MembershipRole {
+  OWNER
+  MANAGER
+  STAFF
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  CREDIT
+}
+
+enum StockMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+model Shop {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String
+  slug      String   @unique
+  phone     String?
+  whatsapp  String?
+  address   String?
+  logoUrl   String?
+  currency  String   @default("XOF")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships   ShopMembership[]
+  products      Product[]
+  customers     Customer[]
+  sales         Sale[]
+  stockMovements StockMovement[]
+  expenses      Expense[]
+
+  @@map("shops")
+}
+
+model ShopMembership {
+  id        String         @id @default(uuid()) @db.Uuid
+  shopId    String         @db.Uuid
+  userId    String         @db.Uuid
+  role      MembershipRole @default(STAFF)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  shop      Shop           @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, userId])
+  @@index([userId])
+  @@map("shop_memberships")
+}
+
+model Product {
+  id            String   @id @default(uuid()) @db.Uuid
+  shopId        String   @db.Uuid
+  legacyId      Int?
+  name          String
+  category      String   @default("Autres")
+  purchasePrice Decimal  @db.Decimal(14, 2)
+  sellingPrice  Decimal  @db.Decimal(14, 2)
+  quantity      Int      @default(0)
+  minStock      Int      @default(0)
+  archivedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  shop          Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, id])
+  @@unique([shopId, legacyId])
+  @@index([shopId, name])
+  @@index([shopId, archivedAt])
+  @@map("products")
+}
+
+model Customer {
+  id        String   @id @default(uuid()) @db.Uuid
+  shopId    String   @db.Uuid
+  legacyId  Int?
+  name      String
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, id])
+  @@unique([shopId, legacyId])
+  @@index([shopId, name])
+  @@index([shopId, phone])
+  @@map("customers")
+}
+
+model Sale {
+  id              String        @id @default(uuid()) @db.Uuid
+  shopId          String        @db.Uuid
+  legacyId        Int?
+  idempotencyKey  String?
+  date            DateTime      @default(now())
+  total           Decimal       @db.Decimal(14, 2)
+  estimatedProfit Decimal       @default(0) @db.Decimal(14, 2)
+  paymentMethod   PaymentMethod
+  customerId      String?       @db.Uuid
+  customerName    String?
+  createdAt       DateTime      @default(now())
+  shop            Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  items           SaleItem[]
+  stockMovements  StockMovement[]
+  creditPayments  CreditPayment[]
+
+  @@unique([shopId, id])
+  @@unique([shopId, legacyId])
+  @@unique([shopId, idempotencyKey])
+  @@index([shopId, date])
+  @@index([shopId, customerId])
+  @@map("sales")
+}
+
+model SaleItem {
+  id            String   @id @default(uuid()) @db.Uuid
+  shopId        String   @db.Uuid
+  saleId        String   @db.Uuid
+  productId     String?  @db.Uuid
+  productName   String
+  quantity      Int
+  purchasePrice Decimal  @db.Decimal(14, 2)
+  sellingPrice  Decimal  @db.Decimal(14, 2)
+  subtotal      Decimal  @db.Decimal(14, 2)
+  estimatedProfit Decimal @default(0) @db.Decimal(14, 2)
+  sale          Sale     @relation(fields: [shopId, saleId], references: [shopId, id], onDelete: Cascade)
+
+  @@index([shopId, saleId])
+  @@index([shopId, productId])
+  @@map("sale_items")
+}
+
+model StockMovement {
+  id          String            @id @default(uuid()) @db.Uuid
+  shopId      String            @db.Uuid
+  legacyId    Int?
+  productId   String?           @db.Uuid
+  productName String
+  saleId      String?           @db.Uuid
+  type        StockMovementType
+  quantity    Int
+  reason      String
+  date        DateTime          @default(now())
+  stockBefore Int
+  stockAfter  Int
+  createdAt   DateTime          @default(now())
+  shop        Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sale        Sale?             @relation(fields: [shopId, saleId], references: [shopId, id], onDelete: SetNull)
+
+  @@unique([shopId, id])
+  @@unique([shopId, legacyId])
+  @@index([shopId, productId, date])
+  @@index([shopId, date])
+  @@map("stock_movements")
+}
+
+model CreditPayment {
+  id         String   @id @default(uuid()) @db.Uuid
+  shopId     String   @db.Uuid
+  legacyId   Int?
+  saleId     String   @db.Uuid
+  customerId String?  @db.Uuid
+  amount     Decimal  @db.Decimal(14, 2)
+  date       DateTime @default(now())
+  note       String?
+  createdAt  DateTime @default(now())
+  sale       Sale     @relation(fields: [shopId, saleId], references: [shopId, id], onDelete: Restrict)
+
+  @@unique([shopId, legacyId])
+  @@index([shopId, saleId, date])
+  @@index([shopId, customerId])
+  @@map("credit_payments")
+}
+
+model Expense {
+  id        String   @id @default(uuid()) @db.Uuid
+  shopId    String   @db.Uuid
+  legacyId  Int?
+  label     String
+  category  String
+  amount    Decimal  @db.Decimal(14, 2)
+  date      DateTime @default(now())
+  note      String?
+  createdAt DateTime @default(now())
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, legacyId])
+  @@index([shopId, date])
+  @@index([shopId, category])
+  @@map("expenses")
+}
