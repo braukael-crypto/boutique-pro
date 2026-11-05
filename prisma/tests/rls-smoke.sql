@@ -11,6 +11,10 @@ INSERT INTO public.products (id, "shopId", name, "purchasePrice", "sellingPrice"
   ('40000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Produit A', 100, 150, 5, 1, now()),
   ('40000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', 'Produit B', 200, 250, 8, 1, now());
 
+INSERT INTO public.customers (id, "shopId", name, "updatedAt") VALUES
+  ('60000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Client A', now()),
+  ('60000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', 'Client B', now());
+
 INSERT INTO public.sales (id, "shopId", total, "paymentMethod")
 VALUES
   ('50000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 150, 'CASH'),
@@ -44,6 +48,42 @@ BEGIN
   IF (SELECT count(*) FROM public.sales WHERE id = '50000000-0000-4000-8000-000000000001') <> 1 THEN
     RAISE EXCEPTION 'RLS failure: sale history can be deleted';
   END IF;
+
+  -- A tenant-A sale cannot point to tenant-B customer.
+  BEGIN
+    INSERT INTO public.sales (id, "shopId", total, "paymentMethod", "customerId")
+    VALUES ('50000000-0000-4000-8000-000000000003', '10000000-0000-4000-8000-000000000001', 10, 'CASH', '60000000-0000-4000-8000-000000000002');
+    RAISE EXCEPTION 'RLS failure: cross-tenant customer reference was accepted';
+  EXCEPTION
+    WHEN foreign_key_violation THEN NULL;
+  END;
+
+  -- A tenant-A sale item cannot point to a tenant-B product.
+  BEGIN
+    INSERT INTO public.sale_items (id, "shopId", "saleId", "productId", "productName", quantity, "purchasePrice", "sellingPrice", subtotal)
+    VALUES ('70000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000002', 'Produit B', 1, 1, 2, 2);
+    RAISE EXCEPTION 'RLS failure: cross-tenant sale item product was accepted';
+  EXCEPTION
+    WHEN foreign_key_violation THEN NULL;
+  END;
+
+  -- A tenant-A stock movement cannot point to a tenant-B product.
+  BEGIN
+    INSERT INTO public.stock_movements (id, "shopId", "productId", "productName", type, quantity, reason, "stockBefore", "stockAfter")
+    VALUES ('80000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '40000000-0000-4000-8000-000000000002', 'Produit B', 'OUT', 1, 'Test', 2, 1);
+    RAISE EXCEPTION 'RLS failure: cross-tenant stock movement product was accepted';
+  EXCEPTION
+    WHEN foreign_key_violation THEN NULL;
+  END;
+
+  -- A tenant-A credit payment cannot point to a tenant-B customer.
+  BEGIN
+    INSERT INTO public.credit_payments (id, "shopId", "saleId", "customerId", amount)
+    VALUES ('90000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', '50000000-0000-4000-8000-000000000001', '60000000-0000-4000-8000-000000000002', 1);
+    RAISE EXCEPTION 'RLS failure: cross-tenant credit customer was accepted';
+  EXCEPTION
+    WHEN foreign_key_violation THEN NULL;
+  END;
 
   BEGIN
     INSERT INTO public.products (id, "shopId", name, "purchasePrice", "sellingPrice", quantity, "minStock", "updatedAt")
