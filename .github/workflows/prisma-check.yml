@@ -1,0 +1,36 @@
+name: Prisma schema checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "prisma/**"
+      - "prisma.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/prisma-check.yml"
+  push:
+    branches: [mission-20-supabase-prisma]
+    paths:
+      - "prisma/**"
+      - "prisma.config.ts"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/prisma-check.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - run: npx prisma validate
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      - run: npx prisma generate
+        env:
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
