@@ -11,6 +11,11 @@ INSERT INTO public.products (id, "shopId", name, "purchasePrice", "sellingPrice"
   ('40000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 'Produit A', 100, 150, 5, 1, now()),
   ('40000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', 'Produit B', 200, 250, 8, 1, now());
 
+INSERT INTO public.sales (id, "shopId", total, "paymentMethod", "updatedAt")
+VALUES
+  ('50000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', 150, 'CASH', now()),
+  ('50000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-000000000002', 250, 'CASH', now());
+
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '30000000-0000-4000-8000-000000000001', false);
 
@@ -21,6 +26,23 @@ BEGIN
   END IF;
   IF (SELECT count(*) FROM public.products) <> 1 THEN
     RAISE EXCEPTION 'RLS failure: user can see another shop product';
+  END IF;
+  IF (SELECT count(*) FROM public.sales) <> 1 THEN
+    RAISE EXCEPTION 'RLS failure: user can see another shop sale';
+  END IF;
+
+  -- Financial records must not be editable or deletable by ordinary members.
+  UPDATE public.sales
+    SET total = 999
+    WHERE id = '50000000-0000-4000-8000-000000000001';
+  IF (SELECT total FROM public.sales WHERE id = '50000000-0000-4000-8000-000000000001') <> 150 THEN
+    RAISE EXCEPTION 'RLS failure: sale history can be modified';
+  END IF;
+
+  DELETE FROM public.sales
+    WHERE id = '50000000-0000-4000-8000-000000000001';
+  IF (SELECT count(*) FROM public.sales WHERE id = '50000000-0000-4000-8000-000000000001') <> 1 THEN
+    RAISE EXCEPTION 'RLS failure: sale history can be deleted';
   END IF;
 
   BEGIN
