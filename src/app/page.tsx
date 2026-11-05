@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { signOutAction } from "@/app/auth/actions";
 
 const modules = [
   { icon: "🛒", label: "Ventes", href: "/ventes" },
