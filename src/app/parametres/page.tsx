@@ -127,7 +127,8 @@ async function downloadLocalBackup(): Promise<void> {
 export default function SettingsPage() {
   const [profile, setProfile] = useState<StoreProfile>(emptyProfile);
   const [loaded, setLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);\n  const [backingUp, setBackingUp] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [backingUp, setBackingUp] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
