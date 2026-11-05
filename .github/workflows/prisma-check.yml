@@ -51,7 +51,9 @@ jobs:
         run: npx prisma generate
         env:
           DIRECT_URL: postgresql://postgres:postgres@localhost:5432/boutiquepro_test
-      - name: TypeScript check\n        run: npx tsc --noEmit\n      - name: Prepare Supabase Auth test roles
+      - name: TypeScript check
+        run: npx tsc --noEmit
+      - name: Prepare Supabase Auth test roles
         run: |
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
           CREATE ROLE anon NOLOGIN;
@@ -59,7 +61,7 @@ jobs:
           CREATE SCHEMA auth;
           CREATE FUNCTION auth.uid() RETURNS uuid
             LANGUAGE sql STABLE
-            AS $ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $;
+            AS $$ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
           SQL
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boutiquepro_test
@@ -67,9 +69,9 @@ jobs:
         run: |
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261105080000_initial_schema/migration.sql
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261105090000_enable_tenant_rls/migration.sql
-      - name: Verify cross-tenant RLS isolation
-        run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/tests/rls-smoke.sql
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boutiquepro_test
+      - name: Verify cross-tenant RLS isolation
+        run: psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/tests/rls-smoke.sql
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boutiquepro_test
