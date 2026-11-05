@@ -115,7 +115,6 @@ model Sale {
   createdAt       DateTime      @default(now())
   shop            Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
   items           SaleItem[]
-  stockMovements  StockMovement[]
   creditPayments  CreditPayment[]
 
   @@unique([shopId, id])
@@ -159,7 +158,6 @@ model StockMovement {
   stockAfter  Int
   createdAt   DateTime          @default(now())
   shop        Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  sale        Sale?             @relation(fields: [shopId, saleId], references: [shopId, id], onDelete: SetNull)
 
   @@unique([shopId, id])
   @@unique([shopId, legacyId])
