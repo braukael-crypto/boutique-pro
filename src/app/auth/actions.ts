@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { headers } from "next/headers";
+import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 
 function safeNextPath(value: FormDataEntryValue | null) {
@@ -41,7 +42,8 @@ export async function signUpAction(formData: FormData) {
   const shopName = String(formData.get("shopName") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const slug = makeSlug(shopName);
+  const baseSlug = makeSlug(shopName);
+  const slug = baseSlug ? `${baseSlug}-${randomBytes(3).toString("hex")}` : "";
 
   if (shopName.length < 2 || shopName.length > 100 || !slug) {
     redirect("/inscription?erreur=Le nom de la boutique est invalide.");
