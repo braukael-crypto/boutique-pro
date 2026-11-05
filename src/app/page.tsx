@@ -1,4 +1,7 @@
 import { Suspense } from "react";
+
+// Le tableau de bord dépend de la session Supabase et doit être rendu à la demande.
+export const instant = false;
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOutAction } from "@/app/auth/actions";
