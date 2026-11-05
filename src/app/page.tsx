@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { signOutAction } from "@/app/auth/actions";
@@ -11,7 +12,7 @@ const modules = [
   { icon: "⚙️", label: "Paramètres", href: "/parametres" },
 ];
 
-export default async function Home() {
+async function DashboardContent() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -56,5 +57,13 @@ export default async function Home() {
         BoutiquePro · Votre commerce, mieux organisé.
       </p>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-slate-50 p-5 text-slate-500">Chargement de votre boutique…</main>}>
+      <DashboardContent />
+    </Suspense>
   );
 }
