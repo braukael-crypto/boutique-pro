@@ -51,7 +51,7 @@ jobs:
         run: npx prisma generate
         env:
           DIRECT_URL: postgresql://postgres:postgres@localhost:5432/boutiquepro_test
-      - name: Prepare Supabase Auth test roles
+      - name: TypeScript check\n        run: npx tsc --noEmit\n      - name: Prepare Supabase Auth test roles
         run: |
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
           CREATE ROLE anon NOLOGIN;
