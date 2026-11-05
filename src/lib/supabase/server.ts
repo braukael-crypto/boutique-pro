@@ -1,4 +1,4 @@
-import { createServerClient } from "@supabase/ssr";
+import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 export async function createClient() {
@@ -15,7 +15,7 @@ export async function createClient() {
       getAll() {
         return cookieStore.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll: (async (cookiesToSet: Parameters<SetAllCookies>[0]) => {
         try {
           cookiesToSet.forEach(({ name, value, options }) => {
             cookieStore.set(name, value, options);
@@ -24,7 +24,7 @@ export async function createClient() {
           // Les Server Components ne peuvent pas écrire les cookies.
           // src/proxy.ts renouvelle la session avant le rendu.
         }
-      },
+      }) as SetAllCookies,
     },
   });
 }
