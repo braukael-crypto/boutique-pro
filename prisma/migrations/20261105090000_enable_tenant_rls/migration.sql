@@ -123,3 +123,66 @@ CREATE POLICY "members_manage_expenses"
 -- 3. Keep the Supabase service-role key server-only; it bypasses RLS.
 -- 4. This establishes tenant membership isolation, not complete role-based
 --    permissions or business-rule validation. Add those before production.
+
+
+-- Supabase Data API table privileges. RLS remains the row-level gate.
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE
+  public.shops,
+  public.shop_memberships,
+  public.products,
+  public.customers,
+  public.sales,
+  public.sale_items,
+  public.stock_movements,
+  public.credit_payments,
+  public.expenses
+TO authenticated;
+
+-- Atomic shop onboarding. The browser cannot choose an owner user_id:
+-- the owner is always the verified Supabase Auth identity (auth.uid()).
+CREATE OR REPLACE FUNCTION public.create_shop_for_current_user(
+  p_name text,
+  p_slug text
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  current_user_id uuid;
+  new_shop_id uuid;
+  clean_name text;
+  clean_slug text;
+BEGIN
+  current_user_id := auth.uid();
+
+  IF current_user_id IS NULL THEN
+    RAISE EXCEPTION 'Authentication required';
+  END IF;
+
+  clean_name := btrim(p_name);
+  clean_slug := lower(btrim(p_slug));
+
+  IF clean_name IS NULL OR char_length(clean_name) < 2 OR char_length(clean_name) > 100 THEN
+    RAISE EXCEPTION 'Shop name must contain between 2 and 100 characters';
+  END IF;
+
+  IF clean_slug IS NULL OR clean_slug !~ '^[a-z0-9]+(-[a-z0-9]+)*$' OR char_length(clean_slug) > 80 THEN
+    RAISE EXCEPTION 'Invalid shop slug';
+  END IF;
+
+  INSERT INTO public.shops (name, slug)
+  VALUES (clean_name, clean_slug)
+  RETURNING id INTO new_shop_id;
+
+  INSERT INTO public.shop_memberships (shop_id, user_id, role)
+  VALUES (new_shop_id, current_user_id, 'OWNER'::public."MembershipRole");
+
+  RETURN new_shop_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.create_shop_for_current_user(text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.create_shop_for_current_user(text, text) TO authenticated;
