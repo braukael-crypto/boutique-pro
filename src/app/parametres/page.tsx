@@ -3,7 +3,16 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ChangeEvent, useEffect, useState } from "react";
-import { openDatabase, SETTINGS_STORE } from "@/lib/boutiquepro-db";
+import {
+  openDatabase,
+  STORE_NAME,
+  MOVEMENT_STORE,
+  SALES_STORE,
+  CUSTOMER_STORE,
+  CREDIT_PAYMENT_STORE,
+  EXPENSE_STORE,
+  SETTINGS_STORE,
+} from "@/lib/boutiquepro-db";
 
 type StoreProfile = {
   id: "profile";
@@ -62,10 +71,63 @@ async function saveProfile(profile: StoreProfile): Promise<void> {
   });
 }
 
+async function downloadLocalBackup(): Promise<void> {
+  const db = await openDatabase();
+  const storeNames = [
+    STORE_NAME,
+    MOVEMENT_STORE,
+    SALES_STORE,
+    CUSTOMER_STORE,
+    CREDIT_PAYMENT_STORE,
+    EXPENSE_STORE,
+    SETTINGS_STORE,
+  ];
+
+  try {
+    const data = await new Promise<Record<string, unknown[]>>((resolve, reject) => {
+      const tx = db.transaction(storeNames, "readonly");
+      const backup: Record<string, unknown[]> = {};
+      for (const name of storeNames) {
+        const request = tx.objectStore(name).getAll();
+        request.onsuccess = () => { backup[name] = request.result as unknown[]; };
+        request.onerror = () => reject(request.error);
+      }
+      tx.oncomplete = () => resolve(backup);
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error("Lecture de sauvegarde annulée."));
+    });
+
+    const payload = {
+      format: "BoutiquePro local backup",
+      version: 1,
+      database: "BoutiqueProDB",
+      databaseVersion: db.version,
+      exportedAt: new Date().toISOString(),
+      stores: data,
+      counts: Object.fromEntries(
+        Object.entries(data).map(([name, records]) => [name, records.length]),
+      ),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `boutiquepro-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  } finally {
+    db.close();
+  }
+}
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState<StoreProfile>(emptyProfile);
   const [loaded, setLoaded] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(false);\n  const [backingUp, setBackingUp] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -93,6 +155,20 @@ export default function SettingsPage() {
       setSuccess("Logo chargé. Enregistrez les paramètres pour le conserver.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Logo invalide.");
+    }
+  }
+
+  async function handleBackup() {
+    setError("");
+    setSuccess("");
+    setBackingUp(true);
+    try {
+      await downloadLocalBackup();
+      setSuccess("Sauvegarde téléchargée. Conservez ce fichier dans un endroit sûr.");
+    } catch {
+      setError("Impossible de créer la sauvegarde locale.");
+    } finally {
+      setBackingUp(false);
     }
   }
 
@@ -148,6 +224,24 @@ export default function SettingsPage() {
             {profile.logo && <div className="mt-3 flex items-center gap-4"><Image src={profile.logo} alt="Aperçu du logo" width={80} height={80} unoptimized className="h-20 w-20 rounded-xl border object-contain p-2" /><button type="button" onClick={() => setProfile((current) => ({ ...current, logo: undefined }))} className="text-sm font-semibold text-red-600">Supprimer le logo</button></div>}
           </div>
           <button type="button" disabled={saving} onClick={handleSave} className="mt-6 w-full rounded-xl bg-[#173B70] p-4 font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : "Enregistrer les paramètres"}</button>
+          <div className="mt-8 border-t border-slate-200 pt-5">
+            <h2 className="text-lg font-bold">Sauvegarde des données</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Téléchargez une copie de vos produits, ventes, clients, crédits,
+              remboursements, mouvements de stock, dépenses et paramètres.
+            </p>
+            <button
+              type="button"
+              disabled={backingUp}
+              onClick={handleBackup}
+              className="mt-4 w-full rounded-xl border border-[#173B70] p-4 font-bold text-[#173B70] disabled:opacity-50"
+            >
+              {backingUp ? "Préparation de la sauvegarde..." : "Télécharger une sauvegarde complète"}
+            </button>
+            <p className="mt-2 text-xs text-slate-500">
+              Cette opération copie les données sans les modifier ni les supprimer.
+            </p>
+          </div>
           {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
           {success && <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{success}</p>}
         </section>
