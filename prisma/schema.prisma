@@ -26,23 +26,23 @@ enum StockMovementType {
 }
 
 model Shop {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String
-  slug      String   @unique
-  phone     String?
-  whatsapp  String?
-  address   String?
-  logoUrl   String?
-  currency  String   @default("XOF")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String
+  slug           String   @unique
+  phone          String?
+  whatsapp       String?
+  address        String?
+  logoUrl        String?
+  currency       String   @default("XOF")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  memberships   ShopMembership[]
-  products      Product[]
-  customers     Customer[]
-  sales         Sale[]
+  memberships    ShopMembership[]
+  products       Product[]
+  customers      Customer[]
+  sales          Sale[]
   stockMovements StockMovement[]
-  expenses      Expense[]
+  expenses       Expense[]
 
   @@map("shops")
 }
@@ -62,19 +62,21 @@ model ShopMembership {
 }
 
 model Product {
-  id            String   @id @default(uuid()) @db.Uuid
-  shopId        String   @db.Uuid
-  legacyId      Int?
-  name          String
-  category      String   @default("Autres")
-  purchasePrice Decimal  @db.Decimal(14, 2)
-  sellingPrice  Decimal  @db.Decimal(14, 2)
-  quantity      Int      @default(0)
-  minStock      Int      @default(0)
-  archivedAt    DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  shop          Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  id             String          @id @default(uuid()) @db.Uuid
+  shopId         String          @db.Uuid
+  legacyId       Int?
+  name           String
+  category       String          @default("Autres")
+  purchasePrice  Decimal         @db.Decimal(14, 2)
+  sellingPrice   Decimal         @db.Decimal(14, 2)
+  quantity       Int             @default(0)
+  minStock       Int             @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  shop           Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
 
   @@unique([shopId, id])
   @@unique([shopId, legacyId])
@@ -84,15 +86,17 @@ model Product {
 }
 
 model Customer {
-  id        String   @id @default(uuid()) @db.Uuid
-  shopId    String   @db.Uuid
-  legacyId  Int?
-  name      String
-  phone     String?
-  address   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  id            String          @id @default(uuid()) @db.Uuid
+  shopId        String          @db.Uuid
+  legacyId      Int?
+  name          String
+  phone         String?
+  address       String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  shop          Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  sales         Sale[]
+  creditPayments CreditPayment[]
 
   @@unique([shopId, id])
   @@unique([shopId, legacyId])
@@ -102,18 +106,19 @@ model Customer {
 }
 
 model Sale {
-  id              String        @id @default(uuid()) @db.Uuid
-  shopId          String        @db.Uuid
+  id              String          @id @default(uuid()) @db.Uuid
+  shopId          String          @db.Uuid
   legacyId        Int?
   idempotencyKey  String?
-  date            DateTime      @default(now())
-  total           Decimal       @db.Decimal(14, 2)
-  estimatedProfit Decimal       @default(0) @db.Decimal(14, 2)
+  date            DateTime        @default(now())
+  total           Decimal         @db.Decimal(14, 2)
+  estimatedProfit Decimal         @default(0) @db.Decimal(14, 2)
   paymentMethod   PaymentMethod
-  customerId      String?       @db.Uuid
+  customerId      String?         @db.Uuid
   customerName    String?
-  createdAt       DateTime      @default(now())
-  shop            Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  createdAt       DateTime        @default(now())
+  shop            Shop            @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  customer        Customer?       @relation(fields: [shopId, customerId], references: [shopId, id], onDelete: Restrict)
   items           SaleItem[]
   creditPayments  CreditPayment[]
 
@@ -126,17 +131,18 @@ model Sale {
 }
 
 model SaleItem {
-  id            String   @id @default(uuid()) @db.Uuid
-  shopId        String   @db.Uuid
-  saleId        String   @db.Uuid
-  productId     String?  @db.Uuid
-  productName   String
-  quantity      Int
-  purchasePrice Decimal  @db.Decimal(14, 2)
-  sellingPrice  Decimal  @db.Decimal(14, 2)
-  subtotal      Decimal  @db.Decimal(14, 2)
-  estimatedProfit Decimal @default(0) @db.Decimal(14, 2)
-  sale          Sale     @relation(fields: [shopId, saleId], references: [shopId, id], onDelete: Cascade)
+  id              String   @id @default(uuid()) @db.Uuid
+  shopId          String   @db.Uuid
+  saleId          String   @db.Uuid
+  productId       String?  @db.Uuid
+  productName     String
+  quantity        Int
+  purchasePrice   Decimal  @db.Decimal(14, 2)
+  sellingPrice    Decimal  @db.Decimal(14, 2)
+  subtotal        Decimal  @db.Decimal(14, 2)
+  estimatedProfit Decimal  @default(0) @db.Decimal(14, 2)
+  sale            Sale     @relation(fields: [shopId, saleId], references: [shopId, id], onDelete: Cascade)
+  product         Product? @relation(fields: [shopId, productId], references: [shopId, id], onDelete: Restrict)
 
   @@index([shopId, saleId])
   @@index([shopId, productId])
@@ -158,6 +164,7 @@ model StockMovement {
   stockAfter  Int
   createdAt   DateTime          @default(now())
   shop        Shop              @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  product     Product?          @relation(fields: [shopId, productId], references: [shopId, id], onDelete: Restrict)
 
   @@unique([shopId, id])
   @@unique([shopId, legacyId])
@@ -167,16 +174,17 @@ model StockMovement {
 }
 
 model CreditPayment {
-  id         String   @id @default(uuid()) @db.Uuid
-  shopId     String   @db.Uuid
-  legacyId   Int?
-  saleId     String   @db.Uuid
-  customerId String?  @db.Uuid
-  amount     Decimal  @db.Decimal(14, 2)
-  date       DateTime @default(now())
-  note       String?
-  createdAt  DateTime @default(now())
-  sale       Sale     @relation(fields: [shopId, saleId], references: [shopId, id], onDelete: Restrict)
+  id          String   @id @default(uuid()) @db.Uuid
+  shopId      String   @db.Uuid
+  legacyId    Int?
+  saleId      String   @db.Uuid
+  customerId  String?  @db.Uuid
+  amount      Decimal  @db.Decimal(14, 2)
+  date        DateTime @default(now())
+  note        String?
+  createdAt   DateTime @default(now())
+  sale        Sale     @relation(fields: [shopId, saleId], references: [shopId, id], onDelete: Restrict)
+  customer    Customer? @relation(fields: [shopId, customerId], references: [shopId, id], onDelete: Restrict)
 
   @@unique([shopId, legacyId])
   @@index([shopId, saleId, date])
