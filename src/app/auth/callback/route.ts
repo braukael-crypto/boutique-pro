@@ -25,8 +25,8 @@ export async function GET(request: NextRequest) {
   // Évite de créer une deuxième boutique si le lien de confirmation est réutilisé.
   const { data: memberships, error: membershipError } = await supabase
     .from("shop_memberships")
-    .select("shop_id")
-    .eq("user_id", user.id)
+    .select("shopId")
+    .eq("userId", user.id)
     .limit(1);
 
   if (membershipError) {
