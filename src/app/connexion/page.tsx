@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { signInAction } from "@/app/auth/actions";
 
@@ -5,7 +6,7 @@ type PageProps = {
   searchParams: Promise<{ erreur?: string; next?: string }>;
 };
 
-export default async function ConnexionPage({ searchParams }: PageProps) {
+async function ConnexionContent({ searchParams }: PageProps) {
   const params = await searchParams;
 
   return (
@@ -28,5 +29,13 @@ export default async function ConnexionPage({ searchParams }: PageProps) {
         <p className="mt-6 text-center text-sm text-slate-500">Pas encore de compte ? <Link className="font-bold text-[#173B70]" href="/inscription">Créer ma boutique</Link></p>
       </section>
     </main>
+  );
+}
+
+export default function ConnexionPage({ searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-slate-50 p-5 text-slate-500">Chargement de la connexion…</main>}>
+      <ConnexionContent searchParams={searchParams} />
+    </Suspense>
   );
 }
