@@ -70,6 +70,7 @@ jobs:
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261105080000_initial_schema/migration.sql
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261105090000_enable_tenant_rls/migration.sql
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261105100000_harden_tenant_security/migration.sql
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f prisma/migrations/20261105110000_enforce_tenant_relations/migration.sql
         env:
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boutiquepro_test
       - name: Verify cross-tenant RLS isolation
