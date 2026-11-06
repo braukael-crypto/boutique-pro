@@ -47,6 +47,13 @@ export async function GET() {
     return jsonError("Impossible de récupérer l'historique des ventes.", 500);
   }
 
+  const customerIds = Array.from(new Set((data ?? []).map((sale) => sale.customerId).filter((id): id is string => Boolean(id))));
+  const { data: customerRows, error: customerError } = customerIds.length
+    ? await auth.supabase.from("customers").select('id, "legacyId"').eq("shopId", auth.shopId).in("id", customerIds)
+    : { data: [], error: null };
+  if (customerError) return jsonError("Impossible de relier les ventes à leurs clients.", 500);
+  const customerLegacyIds = new Map((customerRows ?? []).map((customer) => [customer.id, customer.legacyId]));
+
   const sales = (data ?? [])
     .filter((sale) => sale.legacyId !== null)
     .map((sale) => ({
@@ -55,6 +62,9 @@ export async function GET() {
       total: Number(sale.total),
       estimatedProfit: Number(sale.estimatedProfit),
       paymentMethod: sale.paymentMethod,
+      ...(sale.customerId && customerLegacyIds.get(sale.customerId) !== null && customerLegacyIds.get(sale.customerId) !== undefined
+        ? { customerId: Number(customerLegacyIds.get(sale.customerId)) }
+        : {}),
       ...(sale.customerName ? { customerName: sale.customerName } : {}),
       items: (sale.sale_items ?? []).map((item, index) => ({
         productId: index + 1,

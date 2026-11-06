@@ -69,6 +69,51 @@ async function loadRemoteCustomers(): Promise<Customer[] | null> {
   });
 }
 
+async function loadRemotePayments(): Promise<CreditPayment[] | null> {
+  const response = await fetch("/api/credit-payments", { cache: "no-store" });
+  if (!response.ok) return null;
+  const payload = await response.json() as { payments?: CreditPayment[] };
+  return Array.isArray(payload.payments) ? payload.payments : null;
+}
+
+async function cacheRemotePayments(payments: CreditPayment[]): Promise<void> {
+  if (payments.length === 0) return;
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CREDIT_PAYMENT_STORE, "readwrite");
+    const store = tx.objectStore(CREDIT_PAYMENT_STORE);
+    payments.forEach((payment) => store.put(payment));
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.onabort = () => { db.close(); reject(tx.error ?? new Error("Mise en cache des remboursements annulée.")); };
+  });
+}
+
+async function syncLocalPayments(payments: CreditPayment[]): Promise<void> {
+  for (const payment of payments) {
+    const response = await fetch("/api/credit-payments", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        legacyId: payment.id,
+        saleLegacyId: payment.saleId,
+        amount: payment.amount,
+        date: payment.date,
+        note: payment.note,
+      }),
+    });
+    if (response.status === 404) {
+      // The related historical sale may still exist only on this device.
+      // Keep that repayment local; never invent or recreate the missing sale.
+      continue;
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      throw new Error(payload.error || "Un ancien remboursement n'a pas pu être synchronisé.");
+    }
+  }
+}
+
 async function recordPayment(payment: CreditPayment): Promise<void> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
@@ -139,11 +184,22 @@ export default function ClientsPage() {
             const merged = new Map(localData[0].map((customer) => [customer.id, customer]));
             remoteCustomers.forEach((customer) => merged.set(customer.id, customer));
             if (active) setCustomers(Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name)));
-          } else if (active) {
-            setError("Supabase est indisponible : les clients déjà présents sur cet appareil restent consultables.");
           }
-        } catch {
-          if (active) setError("Impossible de synchroniser les clients avec Supabase. Les données locales sont conservées.");
+
+          // Idempotently migrate this device's previously local repayments before loading
+          // the authoritative remote history. Existing IDs are preserved as idempotency keys.
+          await syncLocalPayments(localData[2]);
+          const remotePayments = await loadRemotePayments();
+          if (remotePayments && active) {
+            await cacheRemotePayments(remotePayments);
+            const mergedPayments = new Map(localData[2].map((payment) => [payment.id, payment]));
+            remotePayments.forEach((payment) => mergedPayments.set(payment.id, payment));
+            if (active) setPayments(Array.from(mergedPayments.values()).sort((a, b) => b.date.localeCompare(a.date)));
+          } else if (active) {
+            setError("Les remboursements locaux sont conservés, mais Supabase n'a pas renvoyé leur historique.");
+          }
+        } catch (err) {
+          if (active) setError(err instanceof Error ? err.message : "Impossible de synchroniser les clients et remboursements. Les données locales sont conservées.");
         }
       } catch {
         if (active) setError("Impossible de charger les clients et les crédits.");
@@ -190,8 +246,18 @@ export default function ClientsPage() {
     const value = Number(amount);
     if (!selected || !Number.isInteger(value) || value <= 0) { setError("Choisissez une dette et saisissez un montant entier valide."); return; }
     try {
-      await recordPayment({ id: createId(), saleId: selected.sale.id, customerId: selected.sale.customerId ?? 0, amount: value, date: new Date().toISOString(), note: note.trim() });
-      await refresh(); setSelectedSale(""); setAmount(""); setNote(""); setSuccess("Remboursement enregistré et solde recalculé.");
+      const payment: CreditPayment = { id: createId(), saleId: selected.sale.id, customerId: selected.sale.customerId ?? 0, amount: value, date: new Date().toISOString(), note: note.trim() };
+      const response = await fetch("/api/credit-payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ legacyId: payment.id, saleLegacyId: payment.saleId, amount: payment.amount, date: payment.date, note: payment.note }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Impossible d'enregistrer le remboursement dans Supabase.");
+      await recordPayment(payment);
+      const remotePayments = await loadRemotePayments();
+      if (remotePayments) await cacheRemotePayments(remotePayments);
+      await refresh(); setSelectedSale(""); setAmount(""); setNote(""); setSuccess("Remboursement enregistré dans Supabase et copié sur cet appareil.");
     } catch (err) { setError(err instanceof Error ? err.message : "Impossible d'enregistrer le remboursement."); }
   }
 
@@ -270,7 +336,7 @@ export default function ClientsPage() {
           </div>
         </section>
         {(error || success) && <p className={error ? "mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700" : "mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700"}>{error || success}</p>}
-        <p className="mt-6 text-center text-xs text-slate-400">BoutiquePro · Clients synchronisés avec Supabase ; ventes et remboursements encore locaux.</p>
+        <p className="mt-6 text-center text-xs text-slate-400">BoutiquePro · Clients, ventes et remboursements synchronisés avec Supabase.</p>
       </div>
     </main>
   );
