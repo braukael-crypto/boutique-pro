@@ -47,6 +47,12 @@ export async function POST(request: NextRequest) {
   const items = input.items;
 
   if (
+    Array.isArray(items) && new Set(items.map((item) => item && typeof item === "object" ? (item as Record<string, unknown>).productLegacyId : null)).size !== items.length
+  ) {
+    return jsonError("Un même produit ne peut apparaître qu'une fois dans la vente.", 400);
+  }
+
+  if (
     typeof legacyId !== "number" || !Number.isSafeInteger(legacyId) || legacyId <= 0 ||
     !["CASH", "MOBILE_MONEY", "CREDIT"].includes(String(paymentMethod)) ||
     (customerLegacyId !== null && customerLegacyId !== undefined &&
