@@ -40,6 +40,13 @@ BEGIN
      OR jsonb_array_length(p_items) > 100 THEN
     RAISE EXCEPTION 'Invalid sale items' USING ERRCODE = '22023';
   END IF;
+  IF EXISTS (
+    SELECT 1 FROM jsonb_array_elements(p_items) AS line(value)
+    GROUP BY line.value->>'productLegacyId'
+    HAVING count(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'A product can only appear once in a sale' USING ERRCODE = '22023';
+  END IF;
   IF p_payment_method = 'CREDIT'::public."PaymentMethod"
      AND p_customer_legacy_id IS NULL THEN
     RAISE EXCEPTION 'A customer is required for credit sales' USING ERRCODE = '22023';
