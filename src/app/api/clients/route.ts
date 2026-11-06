@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 
 function jsonError(message: string, status: number) {
@@ -89,7 +90,7 @@ export async function POST(request: NextRequest) {
   const payload = { name, phone, address: address || null, updatedAt: new Date().toISOString() };
   const query = existing
     ? auth.supabase.from("customers").update(payload).eq("shopId", auth.shopId).eq("id", existing.id)
-    : auth.supabase.from("customers").insert({ ...payload, shopId: auth.shopId, legacyId });
+    : auth.supabase.from("customers").insert({ id: randomUUID(), ...payload, shopId: auth.shopId, legacyId });
 
   const { data, error } = await query
     .select('id, "legacyId", name, phone, address, "createdAt"')
