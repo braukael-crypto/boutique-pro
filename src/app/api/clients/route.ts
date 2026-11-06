@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
 
   if (lookupError) return jsonError("Impossible de vérifier le client.", 500);
 
-  const payload = { name, phone, address: address || null };
+  const payload = { name, phone, address: address || null, updatedAt: new Date().toISOString() };
   const query = existing
     ? auth.supabase.from("customers").update(payload).eq("shopId", auth.shopId).eq("id", existing.id)
     : auth.supabase.from("customers").insert({ ...payload, shopId: auth.shopId, legacyId });
