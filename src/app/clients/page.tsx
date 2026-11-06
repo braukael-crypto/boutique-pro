@@ -102,6 +102,11 @@ async function syncLocalPayments(payments: CreditPayment[]): Promise<void> {
         note: payment.note,
       }),
     });
+    if (response.status === 404) {
+      // The related historical sale may still exist only on this device.
+      // Keep that repayment local; never invent or recreate the missing sale.
+      continue;
+    }
     if (!response.ok) {
       const payload = await response.json().catch(() => ({})) as { error?: string };
       throw new Error(payload.error || "Un ancien remboursement n'a pas pu être synchronisé.");
