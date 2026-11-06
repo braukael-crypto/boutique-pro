@@ -27,6 +27,66 @@ type StockMovement = {
 };
 
 
+type StockBackup = {
+  format: "boutiquepro-stock-backup";
+  version: 1;
+  exportedAt: string;
+  products: Product[];
+  movements: StockMovement[];
+};
+
+async function exportStockBackup(): Promise<void> {
+  const db = await openDatabase();
+
+  try {
+    const backup = await new Promise<StockBackup>((resolve, reject) => {
+      const transaction = db.transaction(
+        [STORE_NAME, MOVEMENT_STORE],
+        "readonly"
+      );
+      const productRequest = transaction.objectStore(STORE_NAME).getAll();
+      const movementRequest = transaction.objectStore(MOVEMENT_STORE).getAll();
+
+      let products: Product[] = [];
+      let movements: StockMovement[] = [];
+
+      productRequest.onsuccess = () => {
+        products = productRequest.result as Product[];
+      };
+      movementRequest.onsuccess = () => {
+        movements = movementRequest.result as StockMovement[];
+      };
+
+      transaction.oncomplete = () => {
+        resolve({
+          format: "boutiquepro-stock-backup",
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          products,
+          movements,
+        });
+      };
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error("Export annulé."));
+    });
+
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const date = new Date().toISOString().slice(0, 10);
+    link.href = url;
+    link.download = `boutiquepro-sauvegarde-stock-${date}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } finally {
+    db.close();
+  }
+}
+
 async function getProducts(): Promise<Product[]> {
   const db = await openDatabase();
 
@@ -168,6 +228,7 @@ async function applyStockMovement(
 export default function StockPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [backupMessage, setBackupMessage] = useState("");
   const [error, setError] = useState("");
 
   const [movements, setMovements] = useState<StockMovement[]>([]);
@@ -351,6 +412,37 @@ export default function StockPage() {
             BP
           </span>
         </header>
+
+        <section className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-bold text-blue-950">Sauvegarde des produits et du stock</h2>
+              <p className="mt-1 text-sm text-blue-800">
+                Exportez vos produits et tout l’historique des mouvements dans un fichier JSON.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                setBackupMessage("");
+                try {
+                  await exportStockBackup();
+                  setBackupMessage("Sauvegarde téléchargée. Conservez ce fichier dans un endroit sûr.");
+                } catch {
+                  setBackupMessage("La sauvegarde a échoué. Vos données locales n’ont pas été modifiées.");
+                }
+              }}
+              className="shrink-0 rounded-xl bg-[#173B70] px-4 py-3 font-bold text-white"
+            >
+              Télécharger la sauvegarde
+            </button>
+          </div>
+          {backupMessage && (
+            <p role="status" className="mt-3 text-sm font-medium text-blue-900">
+              {backupMessage}
+            </p>
+          )}
+        </section>
 
         <section className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border bg-white p-4 shadow-sm">
