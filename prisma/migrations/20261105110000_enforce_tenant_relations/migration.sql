@@ -38,8 +38,11 @@ ALTER TABLE public.products
   CHECK (quantity >= 0 AND "minStock" >= 0);
 
 ALTER TABLE public.sales
-  ADD CONSTRAINT sales_nonnegative_amounts_check
-  CHECK (total >= 0 AND "estimatedProfit" >= 0);
+  ADD CONSTRAINT sales_nonnegative_total_check
+  CHECK (total >= 0);
+
+-- A negative estimated profit is valid business data: it can represent a
+-- discounted or loss-making sale. Do not reject it at the database boundary.
 
 ALTER TABLE public.sale_items
   ADD CONSTRAINT sale_items_positive_quantity_check
@@ -49,8 +52,10 @@ ALTER TABLE public.sale_items
     "purchasePrice" >= 0
     AND "sellingPrice" >= 0
     AND subtotal >= 0
-    AND "estimatedProfit" >= 0
   );
+
+-- Sale-item estimatedProfit may be negative when an item is sold below cost.
+
 
 ALTER TABLE public.credit_payments
   ADD CONSTRAINT credit_payments_positive_amount_check
