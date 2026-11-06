@@ -72,23 +72,35 @@ export async function POST(request: NextRequest) {
   if (lookupError) return jsonError("Impossible de vérifier le produit.", 500);
 
   const productPayload = {
-    shopId: auth.shopId,
-    legacyId,
     name,
     category: category || "Autres",
     purchasePrice: Number(purchasePrice),
     sellingPrice: Number(sellingPrice),
     minStock: Number(minStock),
-    ...(existing ? {} : { quantity: 0 }),
   };
 
-  const { data: saved, error: saveError } = await auth.supabase
-    .from("products")
-    .upsert(productPayload, { onConflict: "shopId,legacyId" })
+  const productQuery = existing
+    ? auth.supabase
+        .from("products")
+        .update(productPayload)
+        .eq("shopId", auth.shopId)
+        .eq("id", existing.id)
+    : auth.supabase
+        .from("products")
+        .insert({
+          ...productPayload,
+          shopId: auth.shopId,
+          legacyId,
+          quantity: 0,
+        });
+
+  const { data: saved, error: saveError } = await productQuery
     .select("id, quantity, legacyId")
     .single();
 
-  if (saveError || !saved) return jsonError("Impossible d'enregistrer le produit dans Supabase.", 500);
+  if (saveError || !saved) {
+    return jsonError("Impossible d'enregistrer le produit dans Supabase.", 500);
+  }
 
   const currentQuantity = Number(saved.quantity);
   const requestedQuantity = Number(quantity);
