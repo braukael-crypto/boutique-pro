@@ -26,6 +26,51 @@ async function getAuthorizedShop() {
   return { supabase, shopId: membership.shopId as string, error: null };
 }
 
+export async function GET() {
+  const auth = await getAuthorizedShop();
+  if (auth.error || !auth.shopId) return jsonError(auth.error || "Accès refusé.", 401);
+
+  const { data, error } = await auth.supabase
+    .from("sales")
+    .select(`
+      legacyId, date, total, estimatedProfit, paymentMethod, customerId, customerName,
+      sale_items (
+        productName, quantity, purchasePrice, sellingPrice, subtotal, estimatedProfit,
+        products (legacyId)
+      )
+    `)
+    .eq("shopId", auth.shopId)
+    .order("date", { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error("[sales] Supabase history read failed:", error);
+    return jsonError("Impossible de récupérer l'historique des ventes.", 500);
+  }
+
+  const sales = (data ?? [])
+    .filter((sale) => sale.legacyId !== null)
+    .map((sale) => ({
+      id: Number(sale.legacyId),
+      date: sale.date,
+      total: Number(sale.total),
+      estimatedProfit: Number(sale.estimatedProfit),
+      paymentMethod: sale.paymentMethod,
+      ...(sale.customerName ? { customerName: sale.customerName } : {}),
+      items: (sale.sale_items ?? []).map((item) => ({
+        productId: Number(item.products?.legacyId ?? 0),
+        productName: item.productName,
+        quantity: item.quantity,
+        purchasePrice: Number(item.purchasePrice),
+        sellingPrice: Number(item.sellingPrice),
+        subtotal: Number(item.subtotal),
+        estimatedProfit: Number(item.estimatedProfit),
+      })),
+    }));
+
+  return NextResponse.json({ sales });
+}
+
 export async function POST(request: NextRequest) {
   const auth = await getAuthorizedShop();
   if (auth.error || !auth.shopId) return jsonError(auth.error || "Accès refusé.", 401);
