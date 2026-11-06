@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
-export const runtime = "nodejs";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
