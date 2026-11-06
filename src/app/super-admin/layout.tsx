@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
 
@@ -9,6 +10,8 @@ export default async function SuperAdminLayout({
 }: {
   children: ReactNode;
 }) {
+  await connection();
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
