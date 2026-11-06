@@ -64,7 +64,7 @@ model ShopMembership {
 model Product {
   id             String          @id @default(uuid()) @db.Uuid
   shopId         String          @db.Uuid
-  legacyId       Int?
+  legacyId BigInt?
   name           String
   category       String          @default("Autres")
   purchasePrice  Decimal         @db.Decimal(14, 2)
@@ -88,7 +88,7 @@ model Product {
 model Customer {
   id            String          @id @default(uuid()) @db.Uuid
   shopId        String          @db.Uuid
-  legacyId      Int?
+  legacyId BigInt?
   name          String
   phone         String?
   address       String?
@@ -108,7 +108,7 @@ model Customer {
 model Sale {
   id              String          @id @default(uuid()) @db.Uuid
   shopId          String          @db.Uuid
-  legacyId        Int?
+  legacyId BigInt?
   idempotencyKey  String?
   date            DateTime        @default(now())
   total           Decimal         @db.Decimal(14, 2)
@@ -152,7 +152,7 @@ model SaleItem {
 model StockMovement {
   id          String            @id @default(uuid()) @db.Uuid
   shopId      String            @db.Uuid
-  legacyId    Int?
+  legacyId BigInt?
   productId   String?           @db.Uuid
   productName String
   saleId      String?           @db.Uuid
@@ -176,7 +176,7 @@ model StockMovement {
 model CreditPayment {
   id          String   @id @default(uuid()) @db.Uuid
   shopId      String   @db.Uuid
-  legacyId    Int?
+  legacyId BigInt?
   saleId      String   @db.Uuid
   customerId  String?  @db.Uuid
   amount      Decimal  @db.Decimal(14, 2)
@@ -195,7 +195,7 @@ model CreditPayment {
 model Expense {
   id        String   @id @default(uuid()) @db.Uuid
   shopId    String   @db.Uuid
-  legacyId  Int?
+  legacyId BigInt?
   label     String
   category  String
   amount    Decimal  @db.Decimal(14, 2)
