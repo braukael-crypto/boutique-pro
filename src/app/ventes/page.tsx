@@ -92,7 +92,9 @@ async function getSales(): Promise<Sale[]> {
 async function saveSale(
   cart: CartItem[],
   paymentMethod: PaymentMethod,
-  customer?: Customer,
+  customer: Customer | undefined,
+  saleId: number,
+  date: string,
 ): Promise<void> {
   if (cart.length === 0) {
     throw new Error("Ajoutez au moins un produit à la vente.");
@@ -113,8 +115,7 @@ async function saveSale(
     const movementStore = transaction.objectStore(MOVEMENT_STORE);
     const salesStore = transaction.objectStore(SALES_STORE);
 
-    const saleId = Date.now();
-    const date = new Date().toISOString();
+    // The same identifier is sent to Supabase and kept in IndexedDB for idempotent retries.
     const items: SaleItem[] = [];
     let failure: Error | null = null;
     let pending = cart.length;
@@ -411,6 +412,7 @@ export default function SalesPage() {
   const [success, setSuccess] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingSaleId, setPendingSaleId] = useState<number | null>(null);
 
   async function refreshData(): Promise<[Product[], Sale[]]> {
     return Promise.all([getProducts(), getSales()]);
@@ -556,17 +558,52 @@ export default function SalesPage() {
 
     try {
       const customer = customers.find((item) => item.id === Number(selectedCustomer));
-      await saveSale(cart, paymentMethod, customer);
+      if (paymentMethod === "CREDIT" && !customer) {
+        throw new Error("Sélectionnez un client pour une vente à crédit.");
+      }
+
+      // Supabase is the source of truth: it validates stock and atomically
+      // creates the sale, sale lines and OUT movements before the local cache changes.
+      const saleId = pendingSaleId ?? Date.now();
+      if (pendingSaleId === null) setPendingSaleId(saleId);
+      const date = new Date().toISOString();
+      const response = await fetch("/api/sales", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          legacyId: saleId,
+          date,
+          paymentMethod,
+          customerLegacyId: customer?.id ?? null,
+          customerName: customer?.name ?? "",
+          items: cart.map((item) => ({
+            productLegacyId: item.productId,
+            quantity: item.quantity,
+          })),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(result.error || "La vente n'a pas été enregistrée dans Supabase.");
+      }
+
+      // This updates only this device's IndexedDB copy. The remote stock
+      // decrement and remote OUT movements were already performed by the SQL function.
+      await saveSale(cart, paymentMethod, customer, saleId, date);
+      setPendingSaleId(null);
       const [loadedProducts, loadedSales] = await refreshData();
       setProducts(loadedProducts);
       setSales(loadedSales);
       setCart([]);
       setPaymentMethod("CASH");
       setSelectedCustomer("");
-      setSuccess("Vente enregistrée et stock mis à jour.");
+      setSuccess("Vente enregistrée dans Supabase et copiée sur cet appareil.");
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Impossible d'enregistrer la vente.",
+        err instanceof Error
+          ? err.message
+          : "Impossible d'enregistrer la vente. Vérifiez la connexion avant de réessayer.",
       );
       const refreshed = await refreshData().catch(() => null);
       if (refreshed) {
