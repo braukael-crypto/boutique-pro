@@ -56,8 +56,8 @@ export async function GET() {
       estimatedProfit: Number(sale.estimatedProfit),
       paymentMethod: sale.paymentMethod,
       ...(sale.customerName ? { customerName: sale.customerName } : {}),
-      items: (sale.sale_items ?? []).map((item) => ({
-        productId: 0,
+      items: (sale.sale_items ?? []).map((item, index) => ({
+        productId: index + 1,
         productName: item.productName,
         quantity: item.quantity,
         purchasePrice: Number(item.purchasePrice),
