@@ -81,7 +81,10 @@ export async function POST(request: NextRequest) {
     .eq("legacyId", legacyId)
     .maybeSingle();
 
-  if (lookupError) return jsonError("Impossible de vérifier le client.", 500);
+  if (lookupError) {
+    console.error("[clients] Supabase lookup failed:", lookupError);
+    return jsonError("Erreur Supabase " + (lookupError.code || "inconnue") + ": " + lookupError.message, 500);
+  }
 
   const payload = { name, phone, address: address || null, updatedAt: new Date().toISOString() };
   const query = existing
@@ -92,7 +95,10 @@ export async function POST(request: NextRequest) {
     .select('id, "legacyId", name, phone, address, "createdAt"')
     .single();
 
-  if (error || !data) return jsonError("Impossible d'enregistrer le client dans Supabase.", 500);
+  if (error || !data) {
+    console.error("[clients] Supabase save failed:", error);
+    return jsonError("Erreur Supabase " + (error?.code || "inconnue") + ": " + (error?.message || "aucune ligne retournee"), 500);
+  }
 
   return NextResponse.json({ customer: data }, { status: existing ? 200 : 201 });
 }
