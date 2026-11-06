@@ -36,7 +36,6 @@ export async function GET() {
       legacyId, date, total, estimatedProfit, paymentMethod, customerId, customerName,
       sale_items (
         productName, quantity, purchasePrice, sellingPrice, subtotal, estimatedProfit,
-        products (legacyId)
       )
     `)
     .eq("shopId", auth.shopId)
@@ -58,7 +57,7 @@ export async function GET() {
       paymentMethod: sale.paymentMethod,
       ...(sale.customerName ? { customerName: sale.customerName } : {}),
       items: (sale.sale_items ?? []).map((item) => ({
-        productId: Number(item.products?.legacyId ?? 0),
+        productId: 0,
         productName: item.productName,
         quantity: item.quantity,
         purchasePrice: Number(item.purchasePrice),
