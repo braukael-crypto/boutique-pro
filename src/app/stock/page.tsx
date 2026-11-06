@@ -6,7 +6,8 @@ import { openDatabase, STORE_NAME, MOVEMENT_STORE } from "@/lib/boutiquepro-db";
 
 type Product = {
   id: number;
-  name: string;
+  remoteId?: string;
+  name:
   category: string;
   purchasePrice: number;
   sellingPrice: number;
@@ -16,6 +17,7 @@ type Product = {
 
 type StockMovement = {
   id: number;
+  remoteId?: string;
   productId: number;
   productName: string;
   type: "IN" | "OUT";
@@ -82,6 +84,86 @@ async function exportStockBackup(): Promise<void> {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+  } finally {
+    db.close();
+  }
+}
+
+type RemoteStock = {
+  products: Array<{
+    id: string;
+    legacyId: number | null;
+    name: string;
+    category: string;
+    purchasePrice: number | string;
+    sellingPrice: number | string;
+    quantity: number;
+    minStock: number;
+  }>;
+  movements: Array<{
+    id: string;
+    legacyId: number | null;
+    productId: string | null;
+    productName: string;
+    type: "IN" | "OUT" | "ADJUSTMENT";
+    quantity: number;
+    reason: string;
+    date: string;
+    stockBefore: number;
+    stockAfter: number;
+  }>;
+};
+
+async function loadRemoteStock(): Promise<{ products: Product[]; movements: StockMovement[] }> {
+  const response = await fetch("/api/stock", { cache: "no-store" });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || "Chargement Supabase impossible.");
+  const data = payload as RemoteStock;
+  const products = data.products.map((item) => ({
+    id: item.legacyId ?? Date.now(),
+    remoteId: item.id,
+    name: item.name,
+    category: item.category,
+    purchasePrice: Number(item.purchasePrice),
+    sellingPrice: Number(item.sellingPrice),
+    quantity: item.quantity,
+    minStock: item.minStock,
+  }));
+  const byRemoteId = new Map(data.products.map((item) => [item.id, item.legacyId ?? 0]));
+  const movements = data.movements.map((item) => ({
+    id: item.legacyId ?? Date.parse(item.date),
+    remoteId: item.id,
+    productId: item.productId ? (byRemoteId.get(item.productId) ?? 0) : 0,
+    productName: item.productName,
+    type: item.type === "IN" ? "IN" as const : "OUT" as const,
+    quantity: item.quantity,
+    reason: item.reason,
+    date: item.date,
+    stockBefore: item.stockBefore,
+    stockAfter: item.stockAfter,
+  }));
+  return { products, movements };
+}
+
+async function cacheRemoteStock(products: Product[], movements: StockMovement[]) {
+  const db = await openDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction([STORE_NAME, MOVEMENT_STORE], "readwrite");
+      const productStore = tx.objectStore(STORE_NAME);
+      const movementStore = tx.objectStore(MOVEMENT_STORE);
+      for (const product of products) {
+        const { remoteId: _remoteId, ...localProduct } = product;
+        productStore.put(localProduct);
+      }
+      for (const movement of movements) {
+        const { remoteId: _remoteId, ...localMovement } = movement;
+        movementStore.put(localMovement);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error || new Error("Mise à jour locale annulée."));
+    });
   } finally {
     db.close();
   }
@@ -249,15 +331,24 @@ export default function StockPage() {
   const [minStock, setMinStock] = useState("5");
 
   useEffect(() => {
-    Promise.all([getProducts(), getMovements()])
-      .then(([loadedProducts, loadedMovements]) => {
+    loadRemoteStock()
+      .then(async ({ products: loadedProducts, movements: loadedMovements }) => {
         setProducts(loadedProducts);
         setMovements(loadedMovements);
-        if (loadedProducts.length > 0) {
-          setMovementProductId(String(loadedProducts[0].id));
+        if (loadedProducts.length > 0) setMovementProductId(String(loadedProducts[0].id));
+        await cacheRemoteStock(loadedProducts, loadedMovements);
+      })
+      .catch(async () => {
+        try {
+          const [localProducts, localMovements] = await Promise.all([getProducts(), getMovements()]);
+          setProducts(localProducts);
+          setMovements(localMovements);
+          if (localProducts.length > 0) setMovementProductId(String(localProducts[0].id));
+          setError("Mode hors connexion : données locales affichées. Les modifications hors ligne ne sont pas encore synchronisées automatiquement.");
+        } catch {
+          setError("Impossible de charger les données du stock.");
         }
       })
-      .catch(() => setError("Impossible de charger les données du stock."))
       .finally(() => setLoaded(true));
   }, []);
 
@@ -281,22 +372,48 @@ export default function StockPage() {
       return;
     }
 
-    const product: Product = {
-      id: editingId ?? Date.now(),
-      name: name.trim(),
-      category,
-      purchasePrice: purchase,
-      sellingPrice: selling,
-      quantity: qty,
-      minStock: minimum,
-    };
-
+    const legacyId = editingId ?? Date.now();
+    const currentProduct = products.find((item) => item.id === legacyId);
     try {
-      await saveProduct(product);
-      setProducts(await getProducts());
+      const response = await fetch("/api/stock/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          legacyId,
+          name: name.trim(),
+          category,
+          purchasePrice: purchase,
+          sellingPrice: selling,
+          quantity: qty,
+          minStock: minimum,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Enregistrement Supabase impossible.");
+      const refreshed = await loadRemoteStock();
+      setProducts(refreshed.products);
+      setMovements(refreshed.movements);
+      await cacheRemoteStock(refreshed.products, refreshed.movements);
       resetForm();
-    } catch {
-      setError("Enregistrement impossible sur ce téléphone.");
+    } catch (err) {
+      if (!navigator.onLine) {
+        const localProduct: Product = {
+          id: legacyId,
+          ...(currentProduct?.remoteId ? { remoteId: currentProduct.remoteId } : {}),
+          name: name.trim(),
+          category,
+          purchasePrice: purchase,
+          sellingPrice: selling,
+          quantity: qty,
+          minStock: minimum,
+        };
+        await saveProduct(localProduct);
+        setProducts(await getProducts());
+        setError("Produit enregistré uniquement sur cet appareil. Il faudra le synchroniser lorsque la connexion sera rétablie.");
+        resetForm();
+      } else {
+        setError(err instanceof Error ? err.message : "Enregistrement impossible.");
+      }
     }
   }
 
@@ -322,20 +439,27 @@ export default function StockPage() {
     }
 
     try {
-      await applyStockMovement(
-        productId,
-        movementType,
-        qty,
-        movementReason
-      );
-
-      const [updatedProducts, updatedMovements] = await Promise.all([
-        getProducts(),
-        getMovements(),
-      ]);
-
-      setProducts(updatedProducts);
-      setMovements(updatedMovements);
+      const selectedProduct = products.find((item) => item.id === productId);
+      if (!selectedProduct?.remoteId) {
+        throw new Error("Ce produit n'est pas encore synchronisé avec Supabase. Connectez-vous pour le synchroniser avant tout mouvement.");
+      }
+      const response = await fetch("/api/stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId: selectedProduct.remoteId,
+          legacyId: Date.now(),
+          type: movementType,
+          quantity: qty,
+          reason: movementReason,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Mouvement non enregistré.");
+      const refreshed = await loadRemoteStock();
+      setProducts(refreshed.products);
+      setMovements(refreshed.movements);
+      await cacheRemoteStock(refreshed.products, refreshed.movements);
       setMovementQuantity("");
       setMovementReason("");
       setMovementSuccess(
@@ -770,7 +894,7 @@ export default function StockPage() {
         </section>
 
         <p className="mt-6 text-center text-xs text-slate-400">
-          BoutiquePro · Stock enregistré localement sur cet appareil
+          BoutiquePro · Supabase en ligne avec copie locale sur cet appareil
         </p>
       </div>
     </main>
