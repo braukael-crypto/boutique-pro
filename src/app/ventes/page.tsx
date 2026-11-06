@@ -415,7 +415,24 @@ export default function SalesPage() {
   const [pendingSaleId, setPendingSaleId] = useState<number | null>(null);
 
   async function refreshData(): Promise<[Product[], Sale[]]> {
-    return Promise.all([getProducts(), getSales()]);
+    const [loadedProducts, localSales] = await Promise.all([getProducts(), getSales()]);
+    try {
+      const response = await fetch("/api/sales", { cache: "no-store" });
+      if (!response.ok) return [loadedProducts, localSales];
+      const result = await response.json() as { sales?: Sale[] };
+      const remoteSales = Array.isArray(result.sales) ? result.sales : [];
+      const merged = new Map<number, Sale>();
+      for (const sale of localSales) merged.set(sale.id, sale);
+      // Supabase is authoritative when the same sale exists in both places.
+      for (const sale of remoteSales) merged.set(sale.id, sale);
+      return [
+        loadedProducts,
+        [...merged.values()].sort((a, b) => b.date.localeCompare(a.date)),
+      ];
+    } catch {
+      // Preserve access to this device's history if the network is unavailable.
+      return [loadedProducts, localSales];
+    }
   }
 
   useEffect(() => {
