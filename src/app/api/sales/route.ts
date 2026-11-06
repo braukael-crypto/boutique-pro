@@ -35,7 +35,7 @@ export async function GET() {
     .select(`
       legacyId, date, total, estimatedProfit, paymentMethod, customerId, customerName,
       sale_items (
-        productName, quantity, purchasePrice, sellingPrice, subtotal, estimatedProfit,
+        productName, quantity, purchasePrice, sellingPrice, subtotal, estimatedProfit
       )
     `)
     .eq("shopId", auth.shopId)
