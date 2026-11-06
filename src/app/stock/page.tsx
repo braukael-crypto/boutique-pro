@@ -7,7 +7,7 @@ import { openDatabase, STORE_NAME, MOVEMENT_STORE } from "@/lib/boutiquepro-db";
 type Product = {
   id: number;
   remoteId?: string;
-  name:
+  name: string;
   category: string;
   purchasePrice: number;
   sellingPrice: number;
