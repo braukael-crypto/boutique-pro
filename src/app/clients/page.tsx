@@ -37,6 +37,38 @@ async function addCustomer(customer: Customer): Promise<void> {
   });
 }
 
+async function cacheRemoteCustomers(customers: Customer[]): Promise<void> {
+  if (customers.length === 0) return;
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CUSTOMER_STORE, "readwrite");
+    const store = tx.objectStore(CUSTOMER_STORE);
+    customers.forEach((customer) => store.put(customer));
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.onabort = () => { db.close(); reject(tx.error ?? new Error("Mise en cache annulée.")); };
+  });
+}
+
+async function loadRemoteCustomers(): Promise<Customer[] | null> {
+  const response = await fetch("/api/clients", { cache: "no-store" });
+  if (!response.ok) return null;
+  const payload = await response.json() as { customers?: Array<Record<string, unknown>> };
+  if (!Array.isArray(payload.customers)) return null;
+
+  return payload.customers.flatMap((row) => {
+    const id = Number(row.legacyId);
+    if (!Number.isSafeInteger(id) || id <= 0) return [];
+    return [{
+      id,
+      name: String(row.name ?? ""),
+      phone: String(row.phone ?? ""),
+      address: String(row.address ?? ""),
+      createdAt: String(row.createdAt ?? new Date().toISOString()),
+    }];
+  });
+}
+
 async function recordPayment(payment: CreditPayment): Promise<void> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
@@ -94,9 +126,32 @@ export default function ClientsPage() {
 
   useEffect(() => {
     let active = true;
-    loadData().then((data) => { if (active) applyData(data); })
-      .catch(() => { if (active) setError("Impossible de charger les clients et les crédits."); })
-      .finally(() => { if (active) setLoaded(true); });
+    async function initialize() {
+      try {
+        const localData = await loadData();
+        if (!active) return;
+        applyData(localData);
+
+        try {
+          const remoteCustomers = await loadRemoteCustomers();
+          if (remoteCustomers && active) {
+            await cacheRemoteCustomers(remoteCustomers);
+            const merged = new Map(localData[0].map((customer) => [customer.id, customer]));
+            remoteCustomers.forEach((customer) => merged.set(customer.id, customer));
+            if (active) setCustomers(Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name)));
+          } else if (active) {
+            setError("Supabase est indisponible : les clients déjà présents sur cet appareil restent consultables.");
+          }
+        } catch {
+          if (active) setError("Impossible de synchroniser les clients avec Supabase. Les données locales sont conservées.");
+        }
+      } catch {
+        if (active) setError("Impossible de charger les clients et les crédits.");
+      } finally {
+        if (active) setLoaded(true);
+      }
+    }
+    void initialize();
     return () => { active = false; };
   }, []);
 
@@ -113,9 +168,21 @@ export default function ClientsPage() {
     event.preventDefault(); setError(""); setSuccess("");
     if (!name.trim() || !phone.trim()) { setError("Le nom et le téléphone sont obligatoires."); return; }
     try {
-      await addCustomer({ id: createId(), name: name.trim(), phone: phone.trim(), address: address.trim(), createdAt: new Date().toISOString() });
-      await refresh(); setName(""); setPhone(""); setAddress(""); setSuccess("Client enregistré avec succès.");
-    } catch { setError("Impossible d'enregistrer ce client."); }
+      const customer: Customer = { id: createId(), name: name.trim(), phone: phone.trim(), address: address.trim(), createdAt: new Date().toISOString() };
+      const response = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ legacyId: customer.id, name: customer.name, phone: customer.phone, address: customer.address }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Impossible d'enregistrer le client dans Supabase.");
+      await addCustomer(customer);
+      await refresh();
+      setName(""); setPhone(""); setAddress("");
+      setSuccess("Client enregistré dans Supabase et copié sur cet appareil.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible d'enregistrer ce client.");
+    }
   }
 
   async function handlePayment(event: React.FormEvent<HTMLFormElement>) {
@@ -203,7 +270,7 @@ export default function ClientsPage() {
           </div>
         </section>
         {(error || success) && <p className={error ? "mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700" : "mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700"}>{error || success}</p>}
-        <p className="mt-6 text-center text-xs text-slate-400">BoutiquePro · Données locales sur cet appareil.</p>
+        <p className="mt-6 text-center text-xs text-slate-400">BoutiquePro · Clients synchronisés avec Supabase ; ventes et remboursements encore locaux.</p>
       </div>
     </main>
   );
