@@ -3,6 +3,9 @@ import { connection } from "next/server";
 import { signOutAction } from "@/app/auth/actions";
 import { createSuperAdminClient } from "@/lib/supabase/admin";
 
+// Cette page utilise la session et les données serveur : elle doit être rendue à la demande.
+export const instant = false;
+
 export default async function SuperAdminPage() {
   await connection();
 
