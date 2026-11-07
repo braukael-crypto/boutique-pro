@@ -246,8 +246,8 @@ export default function SettingsPage() {
       await saveProfile(payload.profile);
       setProfile(payload.profile);
       setSuccess("Paramètres enregistrés dans Supabase et synchronisés sur vos appareils.");
-    } catch {
-      setError("Impossible d'enregistrer les paramètres sur cet appareil.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible d'enregistrer les paramètres.");
     } finally {
       setSaving(false);
     }
