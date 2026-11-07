@@ -9,10 +9,10 @@ function jsonError(message: string, status: number) {
 async function getAuthorizedShop() {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) return { supabase, shopId: null, error: "Authentification requise." };
+  if (authError || !user) { console.error("[suppliers] auth failed:", authError?.message ?? "No user"); return { supabase, shopId: null, error: "Authentification requise." }; }
   const { data: membership, error } = await supabase.from("shop_memberships")
     .select("shopId").eq("userId", user.id).order("createdAt", { ascending: true }).limit(1).maybeSingle();
-  if (error || !membership?.shopId) return { supabase, shopId: null, error: "Aucune boutique autorisée n'a été trouvée." };
+  if (error || !membership?.shopId) { console.error("[suppliers] membership lookup failed:", error?.message ?? "No membership"); return { supabase, shopId: null, error: "Aucune boutique autorisée n'a été trouvée." }; }
   return { supabase, shopId: membership.shopId as string, error: null };
 }
 
@@ -34,7 +34,7 @@ export async function GET() {
   const { data, error } = await auth.supabase.from("suppliers")
     .select("id,legacyId,name,phone,email,address,notes,createdAt,updatedAt")
     .eq("shopId", auth.shopId).order("name", { ascending: true });
-  if (error) return jsonError("Impossible de charger les fournisseurs depuis Supabase.", 500);
+  if (error) { console.error("[suppliers] GET failed:", { code: error.code, message: error.message, details: error.details, hint: error.hint }); return jsonError("Impossible de charger les fournisseurs depuis Supabase.", 500); }
   return NextResponse.json({ suppliers: data ?? [] });
 }
 
@@ -48,12 +48,12 @@ export async function POST(request: NextRequest) {
   if (!parsed) return jsonError("Vérifiez le nom, les coordonnées et l'identifiant du fournisseur.", 400);
   const { data: existing, error: lookupError } = await auth.supabase.from("suppliers").select("id")
     .eq("shopId", auth.shopId).eq("legacyId", parsed.legacyId).maybeSingle();
-  if (lookupError) return jsonError("Impossible de vérifier le fournisseur existant.", 500);
+  if (lookupError) { console.error("[suppliers] POST lookup failed:", { code: lookupError.code, message: lookupError.message, details: lookupError.details, hint: lookupError.hint }); return jsonError("Impossible de vérifier le fournisseur existant.", 500); }
   const payload = { ...parsed, updatedAt: new Date().toISOString() };
   const query = existing
     ? auth.supabase.from("suppliers").update(payload).eq("shopId", auth.shopId).eq("id", existing.id)
     : auth.supabase.from("suppliers").insert({ id: randomUUID(), ...payload, shopId: auth.shopId });
   const { data, error } = await query.select("id,legacyId,name,phone,email,address,notes,createdAt,updatedAt").single();
-  if (error || !data) return jsonError("Impossible d'enregistrer le fournisseur dans Supabase.", 500);
+  if (error || !data) { console.error("[suppliers] POST save failed:", { code: error?.code, message: error?.message, details: error?.details, hint: error?.hint }); return jsonError("Impossible d'enregistrer le fournisseur dans Supabase.", 500); }
   return NextResponse.json({ supplier: data }, { status: existing ? 200 : 201 });
 }
