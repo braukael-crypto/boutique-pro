@@ -6,8 +6,19 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) return NextResponse.redirect(new URL("/connexion?erreur=Le lien de confirmation est invalide ou expiré.", request.url));
+    if (error) return NextResponse.redirect(new URL("/connexion?erreur=Le lien est invalide ou expiré. Demandez un nouveau lien.", request.url));
   }
+
+  // Password recovery links return here with a short-lived recovery session.
+  const requestedNext = request.nextUrl.searchParams.get("next");
+  if (requestedNext === "/reinitialiser-mot-de-passe") {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+      return NextResponse.redirect(new URL("/connexion?erreur=Le lien de récupération est invalide ou expiré.", request.url));
+    }
+    return NextResponse.redirect(new URL("/reinitialiser-mot-de-passe", request.url));
+  }
+
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return NextResponse.redirect(new URL("/connexion?erreur=Veuillez vous connecter.", request.url));
   const { data: memberships, error: membershipError } = await supabase.from("shop_memberships").select("shopId").eq("userId", user.id).limit(1);

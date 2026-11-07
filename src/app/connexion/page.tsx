@@ -3,7 +3,7 @@ import Link from "next/link";
 import { signInAction } from "@/app/auth/actions";
 
 type PageProps = {
-  searchParams: Promise<{ erreur?: string; next?: string }>;
+  searchParams: Promise<{ erreur?: string; message?: string; next?: string }>;
 };
 
 async function ConnexionContent({ searchParams }: PageProps) {
@@ -16,6 +16,7 @@ async function ConnexionContent({ searchParams }: PageProps) {
         <h1 className="mt-3 text-2xl font-extrabold">Connexion</h1>
         <p className="mt-2 text-sm text-slate-500">Connectez-vous pour retrouver la gestion de votre boutique.</p>
         {params.erreur && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{params.erreur}</p>}
+        {params.message && <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{params.message}</p>}
         <form action={signInAction} className="mt-6 space-y-4">
           <input type="hidden" name="next" value={params.next ?? "/boutique"} />
           <label className="block text-sm font-semibold">Adresse e-mail
@@ -24,6 +25,9 @@ async function ConnexionContent({ searchParams }: PageProps) {
           <label className="block text-sm font-semibold">Mot de passe
             <input name="password" type="password" autoComplete="current-password" required className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 font-normal outline-none focus:border-[#12A89D]" />
           </label>
+          <div className="text-right text-sm">
+            <Link className="font-semibold text-[#173B70] underline" href="/mot-de-passe-oublie">Mot de passe oublié ?</Link>
+          </div>
           <button className="w-full rounded-xl bg-[#173B70] px-4 py-3 font-bold text-white">Se connecter</button>
         </form>
         <p className="mt-6 text-center text-sm text-slate-500">Pas encore de compte ? <Link className="font-bold text-[#173B70]" href="/inscription">Créer ma boutique</Link></p>
