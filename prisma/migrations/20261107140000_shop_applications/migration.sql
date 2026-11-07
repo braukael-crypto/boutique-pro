@@ -28,4 +28,4 @@ GRANT SELECT, INSERT ON public.shop_applications TO authenticated;
 GRANT ALL ON public.shop_applications TO service_role;
 CREATE INDEX IF NOT EXISTS shop_applications_status_created_idx
   ON public.shop_applications(status, "createdAt" DESC);
-NOTIFY pgrst, 'reload schema';
+-- Prevent authenticated clients from bypassing the application review via the legacy onboarding RPC.\nREVOKE ALL ON FUNCTION public.create_shop_for_current_user(text, text) FROM PUBLIC;\nREVOKE ALL ON FUNCTION public.create_shop_for_current_user(text, text) FROM authenticated;\nNOTIFY pgrst, 'reload schema';
