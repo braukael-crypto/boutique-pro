@@ -10,9 +10,9 @@ type Expense = { id: number; amount: number; category: string; date: string };
 type CreditPayment = { id: number; amount: number; date: string };
 const money = (value: number) => `${value.toLocaleString("fr-FR")} FCFA`;
 
-async function loadReportData(): Promise<[Sale[], Expense[], CreditPayment[]]> {
+async function loadReportData(): Promise<{ sales: Sale[]; expenses: Expense[]; payments: CreditPayment[]; partial: boolean }> {
   const db = await openDatabase();
-  return new Promise((resolve, reject) => {
+  const [localSales, localExpenses, localPayments] = await new Promise<[Sale[], Expense[], CreditPayment[]]>((resolve, reject) => {
     const tx = db.transaction([SALES_STORE, EXPENSE_STORE, CREDIT_PAYMENT_STORE], "readonly");
     const salesRequest = tx.objectStore(SALES_STORE).getAll();
     const expensesRequest = tx.objectStore(EXPENSE_STORE).getAll();
@@ -25,7 +25,49 @@ async function loadReportData(): Promise<[Sale[], Expense[], CreditPayment[]]> {
     paymentsRequest.onsuccess = () => { payments = paymentsRequest.result as CreditPayment[]; };
     tx.oncomplete = () => { db.close(); resolve([sales, expenses, payments]); };
     tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.onabort = () => { db.close(); reject(tx.error ?? new Error("Lecture locale annulée.")); };
   });
+
+  const requests = await Promise.allSettled([
+    fetch("/api/sales", { cache: "no-store" }),
+    fetch("/api/expenses", { cache: "no-store" }),
+    fetch("/api/credit-payments", { cache: "no-store" }),
+  ]);
+  let partial = false;
+
+  async function readJson<T>(result: PromiseSettledResult<Response>, key: string): Promise<T[] | null> {
+    if (result.status !== "fulfilled" || !result.value.ok) {
+      partial = true;
+      return null;
+    }
+    try {
+      const payload = await result.value.json() as Record<string, unknown>;
+      return Array.isArray(payload[key]) ? payload[key] as T[] : null;
+    } catch {
+      partial = true;
+      return null;
+    }
+  }
+
+  const [remoteSales, remoteExpenses, remotePayments] = await Promise.all([
+    readJson<Sale>(requests[0], "sales"),
+    readJson<Expense>(requests[1], "expenses"),
+    readJson<CreditPayment>(requests[2], "payments"),
+  ]);
+
+  function mergeById<T extends { id: number }>(local: T[], remote: T[] | null): T[] {
+    if (!remote) return local;
+    const merged = new Map(local.map((item) => [item.id, item]));
+    remote.forEach((item) => merged.set(item.id, item));
+    return [...merged.values()];
+  }
+
+  return {
+    sales: mergeById(localSales, remoteSales),
+    expenses: mergeById(localExpenses, remoteExpenses),
+    payments: mergeById(localPayments, remotePayments),
+    partial,
+  };
 }
 
 export default function ReportsPage() {
@@ -38,11 +80,12 @@ export default function ReportsPage() {
   useEffect(() => {
     let active = true;
     loadReportData()
-      .then(([loadedSales, loadedExpenses, loadedPayments]) => {
+      .then(({ sales: loadedSales, expenses: loadedExpenses, payments: loadedPayments, partial }) => {
         if (!active) return;
         setSales(loadedSales);
         setExpenses(loadedExpenses);
         setPayments(loadedPayments);
+        if (partial) setError("Certaines données en ligne sont momentanément indisponibles. Les données enregistrées sur cet appareil restent affichées.");
       })
       .catch(() => { if (active) setError("Impossible de charger les rapports."); })
       .finally(() => { if (active) setLoaded(true); });
@@ -109,7 +152,7 @@ export default function ReportsPage() {
         </section>
         {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
         <div className="mt-5 grid grid-cols-2 gap-3"><Link href="/depenses" className="rounded-xl bg-[#173B70] p-3 text-center text-sm font-bold text-white">Gérer les dépenses</Link><Link href="/ventes" className="rounded-xl border bg-white p-3 text-center text-sm font-bold text-[#173B70]">Voir les ventes</Link></div>
-        <p className="mt-6 text-center text-xs text-slate-400">BoutiquePro · Rapports calculés à partir des données locales.</p>
+        <p className="mt-6 text-center text-xs text-slate-400">BoutiquePro · Rapports consolidés avec les données en ligne et locales.</p>
       </div>
     </main>
   );
