@@ -69,6 +69,42 @@ async function loadRemoteCustomers(): Promise<Customer[] | null> {
   });
 }
 
+async function loadRemoteSales(): Promise<Sale[] | null> {
+  const response = await fetch("/api/sales", { cache: "no-store" });
+  if (!response.ok) return null;
+  const payload = await response.json() as { sales?: Array<Record<string, unknown>> };
+  if (!Array.isArray(payload.sales)) return null;
+
+  return payload.sales.flatMap((row) => {
+    const id = Number(row.id);
+    const total = Number(row.total);
+    if (!Number.isSafeInteger(id) || id <= 0 || !Number.isFinite(total) || total < 0) return [];
+    const paymentMethod = row.paymentMethod;
+    if (paymentMethod !== "CASH" && paymentMethod !== "MOBILE_MONEY" && paymentMethod !== "CREDIT") return [];
+    return [{
+      id,
+      date: String(row.date ?? new Date().toISOString()),
+      total,
+      paymentMethod,
+      ...(row.customerId !== null && row.customerId !== undefined ? { customerId: Number(row.customerId) } : {}),
+      ...(row.customerName ? { customerName: String(row.customerName) } : {}),
+    }];
+  });
+}
+
+async function cacheRemoteSales(sales: Sale[]): Promise<void> {
+  if (sales.length === 0) return;
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SALES_STORE, "readwrite");
+    const store = tx.objectStore(SALES_STORE);
+    sales.forEach((sale) => store.put(sale));
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.onabort = () => { db.close(); reject(tx.error ?? new Error("Mise en cache des ventes annulée.")); };
+  });
+}
+
 async function loadRemotePayments(): Promise<CreditPayment[] | null> {
   const response = await fetch("/api/credit-payments", { cache: "no-store" });
   if (!response.ok) return null;
@@ -184,6 +220,16 @@ export default function ClientsPage() {
             const merged = new Map(localData[0].map((customer) => [customer.id, customer]));
             remoteCustomers.forEach((customer) => merged.set(customer.id, customer));
             if (active) setCustomers(Array.from(merged.values()).sort((a, b) => a.name.localeCompare(b.name)));
+          }
+
+          // Load authoritative remote sales before displaying debts or accepting repayments.
+          // Keep all device-only historical sales; remote rows replace matching legacy IDs.
+          const remoteSales = await loadRemoteSales();
+          if (remoteSales && active) {
+            await cacheRemoteSales(remoteSales);
+            const mergedSales = new Map(localData[1].map((sale) => [sale.id, sale]));
+            remoteSales.forEach((sale) => mergedSales.set(sale.id, sale));
+            if (active) setSales(Array.from(mergedSales.values()).sort((a, b) => b.date.localeCompare(a.date)));
           }
 
           // Idempotently migrate this device's previously local repayments before loading
