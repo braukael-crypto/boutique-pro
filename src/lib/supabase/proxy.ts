@@ -42,6 +42,10 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(destination);
   }
 
+  // Public pages remain accessible to authenticated applicants as well.
+  // In particular, the public homepage must not be trapped behind the pending-application gate.
+  if (pathname === "/" || pathname === "/inscription/verification") return response;
+
   // Existing Super Admins are not shop members; keep their separate console accessible.
   if (pathname === "/super-admin" || pathname.startsWith("/super-admin/")) return response;
 
