@@ -35,6 +35,7 @@ export async function GET() {
     saleItemsResult,
     paymentsResult,
     expensesResult,
+    suppliersResult,
   ] = await Promise.all([
     supabase.from("shops").select("id, name, slug, phone, whatsapp, address, logoUrl, currency, createdAt, updatedAt").eq("id", shopId).single(),
     supabase.from("products").select("*").eq("shopId", shopId).order("createdAt", { ascending: true }),
@@ -44,11 +45,12 @@ export async function GET() {
     supabase.from("sale_items").select("*").eq("shopId", shopId).order("id", { ascending: true }),
     supabase.from("credit_payments").select("*").eq("shopId", shopId).order("date", { ascending: true }),
     supabase.from("expenses").select("*").eq("shopId", shopId).order("date", { ascending: true }),
+    supabase.from("suppliers").select("*").eq("shopId", shopId).order("name", { ascending: true }),
   ]);
 
   const results = [
     shopResult, productsResult, movementsResult, customersResult,
-    salesResult, saleItemsResult, paymentsResult, expensesResult,
+    salesResult, saleItemsResult, paymentsResult, expensesResult, suppliersResult,
   ];
   const failed = results.find((result) => result.error);
   if (failed?.error) {
@@ -65,6 +67,7 @@ export async function GET() {
     saleItems: saleItemsResult.data ?? [],
     creditPayments: paymentsResult.data ?? [],
     expenses: expensesResult.data ?? [],
+    suppliers: suppliersResult.data ?? [],
   };
 
   return NextResponse.json({
@@ -82,6 +85,7 @@ export async function GET() {
       saleItems: stores.saleItems.length,
       creditPayments: stores.creditPayments.length,
       expenses: stores.expenses.length,
+      suppliers: stores.suppliers.length,
     },
   }, {
     headers: {

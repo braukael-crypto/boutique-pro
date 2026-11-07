@@ -43,6 +43,7 @@ model Shop {
   sales          Sale[]
   stockMovements StockMovement[]
   expenses       Expense[]
+  suppliers      Supplier[]
 
   @@map("shops")
 }
@@ -208,4 +209,25 @@ model Expense {
   @@index([shopId, date])
   @@index([shopId, category])
   @@map("expenses")
+}
+
+
+model Supplier {
+  id        String   @id @default(uuid()) @db.Uuid
+  shopId    String   @db.Uuid
+  legacyId  BigInt?
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([shopId, id])
+  @@unique([shopId, legacyId])
+  @@index([shopId, name])
+  @@index([shopId, phone])
+  @@map("suppliers")
 }
