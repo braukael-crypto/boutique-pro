@@ -3,16 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ChangeEvent, useEffect, useState } from "react";
-import {
-  openDatabase,
-  STORE_NAME,
-  MOVEMENT_STORE,
-  SALES_STORE,
-  CUSTOMER_STORE,
-  CREDIT_PAYMENT_STORE,
-  EXPENSE_STORE,
-  SETTINGS_STORE,
-} from "@/lib/boutiquepro-db";
+import { openDatabase, SETTINGS_STORE } from "@/lib/boutiquepro-db";
 
 type StoreProfile = {
   id: "profile";
@@ -69,59 +60,6 @@ async function saveProfile(profile: StoreProfile): Promise<void> {
     tx.onerror = () => { db.close(); reject(tx.error); };
     tx.onabort = () => { db.close(); reject(tx.error); };
   });
-}
-
-async function downloadLocalBackup(): Promise<void> {
-  const db = await openDatabase();
-  const storeNames = [
-    STORE_NAME,
-    MOVEMENT_STORE,
-    SALES_STORE,
-    CUSTOMER_STORE,
-    CREDIT_PAYMENT_STORE,
-    EXPENSE_STORE,
-    SETTINGS_STORE,
-  ];
-
-  try {
-    const data = await new Promise<Record<string, unknown[]>>((resolve, reject) => {
-      const tx = db.transaction(storeNames, "readonly");
-      const backup: Record<string, unknown[]> = {};
-      for (const name of storeNames) {
-        const request = tx.objectStore(name).getAll();
-        request.onsuccess = () => { backup[name] = request.result as unknown[]; };
-        request.onerror = () => reject(request.error);
-      }
-      tx.oncomplete = () => resolve(backup);
-      tx.onerror = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error ?? new Error("Lecture de sauvegarde annulée."));
-    });
-
-    const payload = {
-      format: "BoutiquePro local backup",
-      version: 1,
-      database: "BoutiqueProDB",
-      databaseVersion: db.version,
-      exportedAt: new Date().toISOString(),
-      stores: data,
-      counts: Object.fromEntries(
-        Object.entries(data).map(([name, records]) => [name, records.length]),
-      ),
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `boutiquepro-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  } finally {
-    db.close();
-  }
 }
 
 export default function SettingsPage() {
@@ -214,10 +152,25 @@ export default function SettingsPage() {
     setSuccess("");
     setBackingUp(true);
     try {
-      await downloadLocalBackup();
-      setSuccess("Sauvegarde téléchargée. Conservez ce fichier dans un endroit sûr.");
-    } catch {
-      setError("Impossible de créer la sauvegarde locale.");
+      const response = await fetch("/api/backup", { cache: "no-store" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error || "La sauvegarde distante est indisponible.");
+      }
+      const backup = await response.json();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `boutiquepro-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      const counts = backup.counts as Record<string, number>;
+      setSuccess(`Sauvegarde Supabase téléchargée : ${counts.products ?? 0} produits, ${counts.sales ?? 0} ventes, ${counts.customers ?? 0} clients, ${counts.expenses ?? 0} dépenses. Conservez ce fichier en lieu sûr.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Impossible de créer la sauvegarde Supabase.");
     } finally {
       setBackingUp(false);
     }
@@ -288,8 +241,7 @@ export default function SettingsPage() {
           <div className="mt-8 border-t border-slate-200 pt-5">
             <h2 className="text-lg font-bold">Sauvegarde des données</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Téléchargez une copie de vos produits, ventes, clients, crédits,
-              remboursements, mouvements de stock, dépenses et paramètres.
+              Téléchargez une copie des données enregistrées dans Supabase pour cette boutique : produits, ventes, clients, crédits, remboursements, mouvements de stock, dépenses et identité de la boutique.
             </p>
             <button
               type="button"
@@ -300,7 +252,7 @@ export default function SettingsPage() {
               {backingUp ? "Préparation de la sauvegarde..." : "Télécharger une sauvegarde complète"}
             </button>
             <p className="mt-2 text-xs text-slate-500">
-              Cette opération copie les données sans les modifier ni les supprimer.
+              Cette sauvegarde centralisée ne modifie ni ne supprime aucune donnée. Les opérations encore présentes uniquement sur un appareil ne sont pas incluses.
             </p>
           </div>
           {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
