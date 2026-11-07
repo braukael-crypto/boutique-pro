@@ -691,7 +691,7 @@ export default function SalesPage() {
   return (
     <main className="min-h-screen bg-slate-50 p-5 text-slate-800">
       <header className="rounded-2xl bg-[#173B70] p-6 text-white">
-        <Link href="/" className="text-sm text-blue-100">
+        <Link href="/boutique" className="text-sm text-blue-100">
           ← Accueil
         </Link>
         <h1 className="mt-3 text-2xl font-extrabold">Module Ventes</h1>
