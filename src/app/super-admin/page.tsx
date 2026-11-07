@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { signOutAction } from "@/app/auth/actions";
 import { createSuperAdminClient } from "@/lib/supabase/admin";
 
 export default async function SuperAdminPage() {
+  await connection();
+
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   let shops: Array<{
     id: string;
