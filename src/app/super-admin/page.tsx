@@ -21,6 +21,7 @@ export default async function SuperAdminPage() {
     createdAt: string;
   }> = [];
   let loadError = "";
+  let applications: Array<{ id: string; shopName: string; contactName: string; phone: string; email: string; address: string | null; plan: string; status: string; createdAt: string }> = [];
 
   if (!serviceKey) {
     loadError = "La clé serveur Supabase manque. Ajoutez SUPABASE_SERVICE_ROLE_KEY dans .env.local (et dans l’hébergement).";
@@ -35,6 +36,15 @@ export default async function SuperAdminPage() {
       loadError = "Impossible de charger les boutiques. Vérifiez la configuration serveur et les droits de la base.";
     } else {
       shops = data ?? [];
+      const { data: applicationData, error: applicationError } = await supabase
+        .from("shop_applications")
+        .select("id,shopName,contactName,phone,email,address,plan,status,createdAt")
+        .order("createdAt", { ascending: false });
+      if (applicationError) {
+        loadError = "La table des demandes n’est pas encore installée. Appliquez la migration shop_applications dans Supabase.";
+      } else {
+        applications = applicationData ?? [];
+      }
     }
   }
 
