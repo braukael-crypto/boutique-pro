@@ -17,7 +17,7 @@ async function ConnexionContent({ searchParams }: PageProps) {
         <p className="mt-2 text-sm text-slate-500">Connectez-vous pour retrouver la gestion de votre boutique.</p>
         {params.erreur && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{params.erreur}</p>}
         <form action={signInAction} className="mt-6 space-y-4">
-          <input type="hidden" name="next" value={params.next ?? "/"} />
+          <input type="hidden" name="next" value={params.next ?? "/boutique"} />
           <label className="block text-sm font-semibold">Adresse e-mail
             <input name="email" type="email" autoComplete="email" required className="mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 font-normal outline-none focus:border-[#12A89D]" />
           </label>
