@@ -30,7 +30,7 @@ export async function signUpAction(formData: FormData) {
   const password = String(formData.get("password") ?? "");
 
   if (shopName.length < 2 || shopName.length > 100 || contactName.length < 2 || contactName.length > 100) redirect("/inscription?erreur=Vérifiez le nom de la boutique et le nom du responsable.");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) redirect("/inscription?erreur=Adresse e-mail invalide.");
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) redirect("/inscription?erreur=Adresse e-mail invalide.");
   if (phone.length < 6 || phone.length > 40) redirect("/inscription?erreur=Numéro de téléphone invalide.");
   if (address.length > 300) redirect("/inscription?erreur=Adresse trop longue.");
   if (!["ESSENTIAL","STANDARD","PREMIUM","ENTERPRISE"].includes(plan)) redirect("/inscription?erreur=Choisissez une formule.");
@@ -44,7 +44,14 @@ export async function signUpAction(formData: FormData) {
     email, password,
     options: { emailRedirectTo: new URL("/auth/callback", origin).toString(), data: { shop_name: shopName, contact_name: contactName, phone, address, plan } },
   });
-  if (error) redirect("/inscription?erreur=Impossible de créer le compte. Vérifiez l'adresse e-mail ou réessayez.");
+  if (error) {
+    console.error("[BoutiquePro signup] Supabase signUp failed", {
+      status: error.status,
+      code: error.code,
+      message: error.message,
+    });
+    redirect("/inscription?erreur=Impossible de créer le compte. Vérifiez l'adresse e-mail ou réessayez.");
+  }
   if (data.session) redirect("/auth/callback");
   redirect("/inscription/verification");
 }
