@@ -12,7 +12,7 @@ async function getShopContext() {
 
   const { data: membership, error } = await supabase
     .from("shop_memberships")
-    .select('"shopId", role')
+    .select("shopId, role")
     .eq("userId", user.id)
     .order("createdAt", { ascending: true })
     .limit(1)
