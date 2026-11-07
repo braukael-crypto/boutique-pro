@@ -24,7 +24,7 @@ export default function PublicHomePage() {
           <nav className="flex items-center gap-3">
             <a href="#fonctionnalites" className="hidden text-sm font-semibold text-slate-600 sm:inline">Fonctionnalités</a>
             <a href="#fonctionnement" className="hidden text-sm font-semibold text-slate-600 sm:inline">Comment ça marche</a>
-            <Link href="/connexion" className="rounded-xl bg-[#173B70] px-4 py-2.5 text-sm font-bold text-white">Connexion</Link>
+            <div className="flex items-center gap-2"><Link href="/inscription" className="hidden rounded-xl border border-[#173B70] px-3 py-2.5 text-sm font-bold text-[#173B70] sm:inline">Ouvrir une boutique</Link><Link href="/connexion" className="rounded-xl bg-[#173B70] px-4 py-2.5 text-sm font-bold text-white">Connexion</Link></div>
           </nav>
         </div>
       </header>
@@ -36,7 +36,7 @@ export default function PublicHomePage() {
             <h1 className="mt-6 max-w-2xl text-4xl font-black leading-tight sm:text-5xl lg:text-6xl">Votre boutique mérite une gestion <span className="text-teal-300">plus simple.</span></h1>
             <p className="mt-6 max-w-xl text-base leading-8 text-blue-100 sm:text-lg">BoutiquePro rassemble vos ventes, votre stock, vos clients, vos fournisseurs et vos dépenses dans un seul espace accessible depuis votre téléphone ou votre ordinateur.</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/connexion" className="rounded-xl bg-[#12A89D] px-6 py-3.5 font-bold text-white shadow-lg shadow-black/10">Accéder à ma boutique</Link>
+              <Link href="/inscription" className="rounded-xl bg-[#12A89D] px-6 py-3.5 font-bold text-white shadow-lg shadow-black/10">Demander l’ouverture de ma boutique</Link>
               <a href="#fonctionnalites" className="rounded-xl border border-white/30 px-6 py-3.5 font-bold text-white">Découvrir les fonctionnalités</a>
             </div>
             <p className="mt-4 text-xs text-blue-200">L'ouverture de nouveaux comptes sera proposée après mise en place du parcours de demande et de validation.</p>
@@ -75,7 +75,7 @@ export default function PublicHomePage() {
       <section className="mx-auto max-w-7xl px-5 py-16 text-center sm:py-20">
         <h2 className="text-3xl font-black text-[#173B70] sm:text-4xl">Prêt à mieux organiser votre commerce ?</h2>
         <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">Connectez-vous à votre espace si votre boutique dispose déjà d'un accès BoutiquePro.</p>
-        <Link href="/connexion" className="mt-7 inline-flex rounded-xl bg-[#173B70] px-7 py-3.5 font-bold text-white">Se connecter à BoutiquePro</Link>
+        <div className="mt-7 flex flex-wrap justify-center gap-3"><Link href="/inscription" className="inline-flex rounded-xl bg-[#173B70] px-7 py-3.5 font-bold text-white">Demander l’ouverture</Link><Link href="/connexion" className="inline-flex rounded-xl border border-slate-300 px-7 py-3.5 font-bold text-[#173B70]">Déjà client ? Connexion</Link></div>
       </section>
 
       <footer className="bg-[#102D55] px-5 py-8 text-center text-sm text-blue-100"><p className="font-bold text-white">BoutiquePro · CMR GROUP</p><p className="mt-2">Votre commerce, mieux organisé.</p></footer>
