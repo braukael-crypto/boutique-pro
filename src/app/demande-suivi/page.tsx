@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-
-export const dynamic = "force-dynamic";
 
 const labels: Record<string,string> = { ESSENTIAL:"Essentiel", STANDARD:"Standard", PREMIUM:"Premium", ENTERPRISE:"Entreprise" };
 const statuses: Record<string,string> = { PENDING:"En attente de traitement", UNDER_REVIEW:"En cours d'étude", REJECTED:"Demande à compléter ou refusée", APPROVED:"Demande approuvée" };
 
 export default async function DemandeSuiviPage() {
+  await connection();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/connexion?next=/demande-suivi");
