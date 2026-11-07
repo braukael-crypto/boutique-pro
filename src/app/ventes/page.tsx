@@ -68,6 +68,41 @@ async function getProducts(): Promise<Product[]> {
   });
 }
 
+async function loadRemoteProducts(): Promise<Product[]> {
+  const response = await fetch("/api/stock", { cache: "no-store" });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || "Chargement des produits impossible.");
+
+  const remoteProducts = Array.isArray(payload.products) ? payload.products : [];
+  return remoteProducts
+    .filter((item: Record<string, unknown>) => Number.isSafeInteger(item.legacyId))
+    .map((item: Record<string, unknown>) => ({
+      id: Number(item.legacyId),
+      name: String(item.name),
+      category: String(item.category ?? "Autres"),
+      purchasePrice: Number(item.purchasePrice),
+      sellingPrice: Number(item.sellingPrice),
+      quantity: Number(item.quantity),
+      minStock: Number(item.minStock ?? 0),
+    }));
+}
+
+async function cacheProducts(products: Product[]): Promise<void> {
+  const db = await openDatabase();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, "readwrite");
+      const store = tx.objectStore(STORE_NAME);
+      for (const product of products) store.put(product);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error ?? new Error("Mise à jour locale annulée."));
+    });
+  } finally {
+    db.close();
+  }
+}
+
 async function getSales(): Promise<Sale[]> {
   const db = await openDatabase();
 
@@ -415,7 +450,20 @@ export default function SalesPage() {
   const [pendingSaleId, setPendingSaleId] = useState<number | null>(null);
 
   async function refreshData(): Promise<[Product[], Sale[]]> {
-    const [loadedProducts, localSales] = await Promise.all([getProducts(), getSales()]);
+    const [localProducts, localSales] = await Promise.all([getProducts(), getSales()]);
+    let loadedProducts = localProducts;
+    try {
+      const remoteProducts = await loadRemoteProducts();
+      const mergedProducts = new Map<number, Product>();
+      for (const product of localProducts) mergedProducts.set(product.id, product);
+      // Supabase is authoritative for current stock and product details.
+      for (const product of remoteProducts) mergedProducts.set(product.id, product);
+      loadedProducts = [...mergedProducts.values()].sort((a, b) => a.name.localeCompare(b.name));
+      await cacheProducts(remoteProducts);
+    } catch {
+      // Keep this device's cached products available when offline.
+    }
+
     try {
       const response = await fetch("/api/sales", { cache: "no-store" });
       if (!response.ok) return [loadedProducts, localSales];
