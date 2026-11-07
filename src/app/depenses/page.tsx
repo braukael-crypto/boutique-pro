@@ -41,10 +41,33 @@ async function saveExpense(expense: Expense): Promise<void> {
 
 async function synchronizeExpenses(): Promise<Expense[]> {
   const local = await getExpenses();
-  const response = await fetch("/api/expenses", { cache: "no-store" });
-  if (!response.ok) throw new Error("Impossible de récupérer les dépenses de la boutique.");
-  const payload = await response.json() as { expenses?: Expense[] };
-  const remote = Array.isArray(payload.expenses) ? payload.expenses : [];
+  const firstResponse = await fetch("/api/expenses", { cache: "no-store" });
+  if (!firstResponse.ok) throw new Error("Impossible de récupérer les dépenses de la boutique.");
+  const firstPayload = await firstResponse.json() as { expenses?: Expense[] };
+  const initialRemote = Array.isArray(firstPayload.expenses) ? firstPayload.expenses : [];
+  const remoteIds = new Set(initialRemote.map((expense) => expense.id));
+
+  // Backfill ancien historique local vers Supabase. Le legacyId unique côté
+  // boutique rend chaque envoi idempotent si plusieurs appareils synchronisent.
+  for (const expense of local) {
+    if (remoteIds.has(expense.id)) continue;
+    const upload = await fetch("/api/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ legacyId: expense.id, ...expense }),
+    });
+    const result = await upload.json() as { expense?: Expense; error?: string };
+    if (!upload.ok || !result.expense) {
+      throw new Error(result.error || "Une ancienne dépense n'a pas pu être synchronisée.");
+    }
+    remoteIds.add(result.expense.id);
+  }
+
+  // Relire la source distante après le rattrapage pour obtenir l'historique complet.
+  const finalResponse = await fetch("/api/expenses", { cache: "no-store" });
+  if (!finalResponse.ok) throw new Error("Impossible de confirmer la synchronisation des dépenses.");
+  const finalPayload = await finalResponse.json() as { expenses?: Expense[] };
+  const remote = Array.isArray(finalPayload.expenses) ? finalPayload.expenses : [];
   for (const expense of remote) await saveExpense(expense);
   const merged = new Map<number, Expense>(local.map((expense) => [expense.id, expense]));
   for (const expense of remote) merged.set(expense.id, expense);
