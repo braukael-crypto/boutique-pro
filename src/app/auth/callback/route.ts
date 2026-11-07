@@ -10,10 +10,12 @@ export async function GET(request: NextRequest) {
   }
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return NextResponse.redirect(new URL("/connexion?erreur=Veuillez vous connecter.", request.url));
-
   const { data: memberships, error: membershipError } = await supabase.from("shop_memberships").select("shopId").eq("userId", user.id).limit(1);
   if (membershipError) return NextResponse.redirect(new URL("/connexion?erreur=Impossible de vérifier votre accès. Contactez le support.", request.url));
   if (memberships?.length) return NextResponse.redirect(new URL("/boutique", request.url));
+  const { data: existing, error: existingError } = await supabase.from("shop_applications").select("id").eq("userId", user.id).maybeSingle();
+  if (existingError) return NextResponse.redirect(new URL("/inscription?erreur=Impossible de vérifier votre demande. Contactez le support.", request.url));
+  if (existing) return NextResponse.redirect(new URL("/demande-suivi", request.url));
 
   const metadata = user.user_metadata ?? {};
   const shopName = typeof metadata.shop_name === "string" ? metadata.shop_name.trim() : "";
@@ -24,9 +26,9 @@ export async function GET(request: NextRequest) {
   if (shopName.length < 2 || contactName.length < 2 || phone.length < 6 || !["ESSENTIAL","STANDARD","PREMIUM","ENTERPRISE"].includes(plan)) {
     return NextResponse.redirect(new URL("/inscription?erreur=Les informations de votre demande sont incomplètes.", request.url));
   }
-  const { error: applicationError } = await supabase.from("shop_applications").upsert({
-    userId: user.id, shopName, contactName, phone, email: user.email ?? "", address: address || null, plan, updatedAt: new Date().toISOString(),
-  }, { onConflict: "userId" });
+  const { error: applicationError } = await supabase.from("shop_applications").insert({
+    userId: user.id, shopName, contactName, phone, email: user.email ?? "", address: address || null, plan,
+  });
   if (applicationError) {
     console.error("[shop-application] create failed:", applicationError);
     return NextResponse.redirect(new URL("/inscription?erreur=Votre compte est confirmé, mais la demande n'a pas pu être enregistrée. Contactez le support.", request.url));
