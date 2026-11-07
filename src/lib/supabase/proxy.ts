@@ -48,8 +48,12 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (pathname === "/connexion" || pathname === "/inscription") {
+    const requestedNext = request.nextUrl.searchParams.get("next");
+    const safeNext = requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+      ? requestedNext
+      : "/boutique";
     const destination = request.nextUrl.clone();
-    destination.pathname = "/boutique";
+    destination.pathname = safeNext;
     destination.search = "";
     return NextResponse.redirect(destination);
   }
