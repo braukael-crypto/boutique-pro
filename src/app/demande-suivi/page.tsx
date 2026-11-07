@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// Cette page dépend de la session Supabase et doit être rendue à la demande.
+export const instant = false;
+
 const labels: Record<string,string> = { ESSENTIAL:"Essentiel", STANDARD:"Standard", PREMIUM:"Premium", ENTERPRISE:"Entreprise" };
 const statuses: Record<string,string> = { PENDING:"En attente de traitement", UNDER_REVIEW:"En cours d'étude", REJECTED:"Demande à compléter ou refusée", APPROVED:"Demande approuvée" };
 
