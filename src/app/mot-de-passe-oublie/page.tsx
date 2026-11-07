@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { requestPasswordResetAction } from "@/app/auth/actions";
 
@@ -5,7 +6,7 @@ type PageProps = {
   searchParams: Promise<{ erreur?: string; message?: string }>;
 };
 
-export default async function MotDePasseOubliePage({ searchParams }: PageProps) {
+async function MotDePasseOublieContent({ searchParams }: PageProps) {
   const params = await searchParams;
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-5 text-slate-800">
@@ -24,5 +25,13 @@ export default async function MotDePasseOubliePage({ searchParams }: PageProps) 
         <p className="mt-6 text-center text-sm"><Link className="font-semibold text-[#173B70] underline" href="/connexion">Retour à la connexion</Link></p>
       </section>
     </main>
+  );
+}
+
+export default function MotDePasseOubliePage({ searchParams }: PageProps) {
+  return (
+    <Suspense fallback={<main className="flex min-h-screen items-center justify-center bg-slate-50 p-5 text-slate-500">Chargement…</main>}>
+      <MotDePasseOublieContent searchParams={searchParams} />
+    </Suspense>
   );
 }
