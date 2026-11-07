@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 
 // Le tableau de bord dépend de la session Supabase et doit être rendu à la demande.
 export const instant = false;
@@ -17,6 +18,8 @@ const modules = [
 ];
 
 async function DashboardContent() {
+  // Supabase session state is request-specific; avoid evaluating it during prerender.
+  await connection();
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
