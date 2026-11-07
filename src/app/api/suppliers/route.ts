@@ -32,7 +32,7 @@ export async function GET() {
   const auth = await getAuthorizedShop();
   if (auth.error || !auth.shopId) return jsonError(auth.error || "Accès refusé.", 401);
   const { data, error } = await auth.supabase.from("suppliers")
-    .select('id, "legacyId", name, phone, email, address, notes, "createdAt", "updatedAt"')
+    .select("id,legacyId,name,phone,email,address,notes,createdAt,updatedAt")
     .eq("shopId", auth.shopId).order("name", { ascending: true });
   if (error) return jsonError("Impossible de charger les fournisseurs depuis Supabase.", 500);
   return NextResponse.json({ suppliers: data ?? [] });
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
   const query = existing
     ? auth.supabase.from("suppliers").update(payload).eq("shopId", auth.shopId).eq("id", existing.id)
     : auth.supabase.from("suppliers").insert({ id: randomUUID(), ...payload, shopId: auth.shopId });
-  const { data, error } = await query.select('id, "legacyId", name, phone, email, address, notes, "createdAt", "updatedAt"').single();
+  const { data, error } = await query.select("id,legacyId,name,phone,email,address,notes,createdAt,updatedAt").single();
   if (error || !data) return jsonError("Impossible d'enregistrer le fournisseur dans Supabase.", 500);
   return NextResponse.json({ supplier: data }, { status: existing ? 200 : 201 });
 }
