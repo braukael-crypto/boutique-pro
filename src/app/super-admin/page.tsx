@@ -98,7 +98,7 @@ export default async function SuperAdminPage() {
         </section>
 
         <footer className="mt-8 flex gap-4 text-sm">
-          <Link href="/" className="font-semibold text-[#173B70]">← Espace boutique</Link>
+          <Link href="/boutique" className="font-semibold text-[#173B70]">← Espace boutique</Link>
         </footer>
       </div>
     </main>
