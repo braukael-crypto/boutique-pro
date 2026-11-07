@@ -32,11 +32,23 @@ async function saveExpense(expense: Expense): Promise<void> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(EXPENSE_STORE, "readwrite");
-    tx.objectStore(EXPENSE_STORE).add(expense);
+    tx.objectStore(EXPENSE_STORE).put(expense);
     tx.oncomplete = () => { db.close(); resolve(); };
-    tx.onabort = () => { db.close(); reject(tx.error ?? new Error("Enregistrement annulé.")); };
+    tx.onabort = () => { db.close(); reject(tx.error ?? new Error("Enregistrement local annulé.")); };
     tx.onerror = () => { db.close(); };
   });
+}
+
+async function synchronizeExpenses(): Promise<Expense[]> {
+  const local = await getExpenses();
+  const response = await fetch("/api/expenses", { cache: "no-store" });
+  if (!response.ok) throw new Error("Impossible de récupérer les dépenses de la boutique.");
+  const payload = await response.json() as { expenses?: Expense[] };
+  const remote = Array.isArray(payload.expenses) ? payload.expenses : [];
+  for (const expense of remote) await saveExpense(expense);
+  const merged = new Map<number, Expense>(local.map((expense) => [expense.id, expense]));
+  for (const expense of remote) merged.set(expense.id, expense);
+  return Array.from(merged.values()).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 export default function ExpensesPage() {
@@ -49,12 +61,23 @@ export default function ExpensesPage() {
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [syncWarning, setSyncWarning] = useState("");
 
   useEffect(() => {
     let active = true;
-    getExpenses()
+    synchronizeExpenses()
       .then((data) => { if (active) setExpenses(data); })
-      .catch(() => { if (active) setError("Impossible de charger les dépenses."); })
+      .catch(async () => {
+        try {
+          const local = await getExpenses();
+          if (active) {
+            setExpenses(local);
+            setSyncWarning("Connexion Supabase indisponible : seules les dépenses déjà présentes sur cet appareil sont affichées.");
+          }
+        } catch {
+          if (active) setError("Impossible de charger les dépenses.");
+        }
+      })
       .finally(() => { if (active) setLoaded(true); });
     return () => { active = false; };
   }, []);
@@ -65,25 +88,38 @@ export default function ExpensesPage() {
     event.preventDefault();
     setError("");
     setSuccess("");
+    setSyncWarning("");
     const value = Number(amount);
-    if (!label.trim() || !Number.isInteger(value) || value <= 0 || !date) {
+    if (!label.trim() || !Number.isSafeInteger(value) || value <= 0 || !date) {
       setError("Saisissez un libellé, un montant entier positif et une date.");
       return;
     }
+
+    const expense: Expense = {
+      id: Date.now(),
+      label: label.trim(),
+      category,
+      amount: value,
+      date: new Date(`${date}T12:00:00`).toISOString(),
+      note: note.trim(),
+    };
+
     try {
-      await saveExpense({
-        id: Date.now(),
-        label: label.trim(),
-        category,
-        amount: value,
-        date: new Date(`${date}T12:00:00`).toISOString(),
-        note: note.trim(),
+      const response = await fetch("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ legacyId: expense.id, ...expense }),
       });
-      setExpenses(await getExpenses());
+      const payload = await response.json() as { expense?: Expense; error?: string };
+      if (!response.ok || !payload.expense) {
+        throw new Error(payload.error || "Impossible d'enregistrer la dépense dans Supabase.");
+      }
+      await saveExpense(payload.expense);
+      setExpenses((current) => [payload.expense!, ...current.filter((item) => item.id !== payload.expense!.id)].sort((a, b) => b.date.localeCompare(a.date)));
       setLabel("");
       setAmount("");
       setNote("");
-      setSuccess("Dépense enregistrée avec succès.");
+      setSuccess("Dépense enregistrée dans Supabase et copiée sur cet appareil.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Impossible d'enregistrer cette dépense.");
     }
@@ -101,16 +137,16 @@ export default function ExpensesPage() {
         </header>
 
         <section className="mt-5 rounded-2xl border bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Total des dépenses enregistrées</p>
+          <p className="text-sm text-slate-500">Total des dépenses affichées</p>
           <p className="mt-2 text-2xl font-extrabold text-red-700">{money(total)}</p>
-          <p className="mt-1 text-xs text-slate-500">{expenses.length} dépense(s) enregistrée(s) sur cet appareil.</p>
+          <p className="mt-1 text-xs text-slate-500">{expenses.length} dépense(s) enregistrée(s).</p>
         </section>
 
         <section className="mt-5 rounded-2xl border bg-white p-5 shadow-sm">
           <h2 className="text-lg font-bold">Ajouter une dépense</h2>
           <form onSubmit={handleSubmit} className="mt-4 space-y-3">
             <label className="block text-sm font-semibold">Libellé *
-              <input required value={label} onChange={(event) => setLabel(event.target.value)} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Ex. : Achat de sacs d'emballage" />
+              <input required maxLength={200} value={label} onChange={(event) => setLabel(event.target.value)} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Ex. : Achat de sacs d'emballage" />
             </label>
             <label className="block text-sm font-semibold">Catégorie
               <select value={category} onChange={(event) => setCategory(event.target.value)} className="mt-1 w-full rounded-xl border bg-white p-3 font-normal">
@@ -124,7 +160,7 @@ export default function ExpensesPage() {
               <input required type="date" value={date} onChange={(event) => setDate(event.target.value)} className="mt-1 w-full rounded-xl border p-3 font-normal" />
             </label>
             <label className="block text-sm font-semibold">Note (facultatif)
-              <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Précisions sur la dépense" />
+              <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={2} maxLength={1000} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Précisions sur la dépense" />
             </label>
             <button type="submit" className="w-full rounded-xl bg-[#173B70] p-3 font-bold text-white">Enregistrer la dépense</button>
           </form>
@@ -145,8 +181,8 @@ export default function ExpensesPage() {
             ))}
           </div>
         </section>
-        {(error || success) && <p className={error ? "mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700" : "mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700"}>{error || success}</p>}
-        <p className="mt-6 text-center text-xs text-slate-400">BoutiquePro · Données locales sur cet appareil.</p>
+        {(error || success || syncWarning) && <p className={error ? "mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700" : success ? "mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700" : "mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800"}>{error || success || syncWarning}</p>}
+        <p className="mt-6 text-center text-xs text-slate-400">BoutiquePro · Dépenses de la boutique synchronisées avec Supabase.</p>
       </div>
     </main>
   );
