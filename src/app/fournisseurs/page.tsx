@@ -89,7 +89,7 @@ export default function SuppliersPage() {
 
   if (!loaded) return <main className="min-h-screen p-6">Chargement des fournisseurs...</main>;
   return <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-800 sm:px-8"><div className="mx-auto max-w-4xl">
-    <header className="rounded-2xl bg-[#173B70] p-6 text-white"><Link href="/" className="text-sm text-blue-100">← Tableau de bord</Link><h1 className="mt-3 text-2xl font-extrabold">Fournisseurs</h1><p className="mt-2 text-sm text-blue-100">Centralisez les coordonnées de vos fournisseurs sur vos appareils.</p></header>
+    <header className="rounded-2xl bg-[#173B70] p-6 text-white"><Link href="/boutique" className="text-sm text-blue-100">← Tableau de bord</Link><h1 className="mt-3 text-2xl font-extrabold">Fournisseurs</h1><p className="mt-2 text-sm text-blue-100">Centralisez les coordonnées de vos fournisseurs sur vos appareils.</p></header>
     <section className="mt-5 rounded-2xl border bg-white p-5 shadow-sm"><h2 className="text-lg font-bold">Ajouter un fournisseur</h2><form onSubmit={handleSubmit} className="mt-4 grid gap-3 sm:grid-cols-2">
       <label className="text-sm font-semibold sm:col-span-2">Nom du fournisseur *<input required maxLength={200} value={name} onChange={e=>setName(e.target.value)} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="Nom de l'entreprise ou du fournisseur"/></label>
       <label className="text-sm font-semibold">Téléphone<input maxLength={40} value={phone} onChange={e=>setPhone(e.target.value)} className="mt-1 w-full rounded-xl border p-3 font-normal" placeholder="+229..."/></label>

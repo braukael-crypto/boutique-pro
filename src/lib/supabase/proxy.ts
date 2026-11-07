@@ -32,6 +32,7 @@ export async function updateSession(request: NextRequest) {
   const claims = data?.claims;
   const pathname = request.nextUrl.pathname;
   const isPublicRoute =
+    pathname === "/" ||
     pathname === "/connexion" ||
     pathname === "/inscription" ||
     pathname.startsWith("/auth/");
@@ -47,8 +48,12 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (pathname === "/connexion" || pathname === "/inscription") {
+    const requestedNext = request.nextUrl.searchParams.get("next");
+    const safeNext = requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+      ? requestedNext
+      : "/boutique";
     const destination = request.nextUrl.clone();
-    destination.pathname = "/";
+    destination.pathname = safeNext;
     destination.search = "";
     return NextResponse.redirect(destination);
   }

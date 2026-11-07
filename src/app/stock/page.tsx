@@ -522,7 +522,7 @@ export default function StockPage() {
       <div className="mx-auto max-w-5xl">
         <header className="mb-6 flex items-center justify-between">
           <div>
-            <Link href="/" className="text-sm font-semibold text-blue-700">
+            <Link href="/boutique" className="text-sm font-semibold text-blue-700">
               ← Retour au tableau de bord
             </Link>
             <h1 className="mt-3 text-2xl font-extrabold text-slate-900">

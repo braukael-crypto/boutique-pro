@@ -212,7 +212,7 @@ export default function SettingsPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-800 sm:px-8">
       <div className="mx-auto max-w-2xl">
         <header className="rounded-2xl bg-[#173B70] p-6 text-white">
-          <Link href="/" className="text-sm text-blue-100">← Tableau de bord</Link>
+          <Link href="/boutique" className="text-sm text-blue-100">← Tableau de bord</Link>
           <h1 className="mt-3 text-2xl font-extrabold">Paramètres de la boutique</h1>
           <p className="mt-2 text-sm text-blue-100">Personnalisez les informations qui apparaissent sur vos reçus.</p>
         </header>

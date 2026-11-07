@@ -114,7 +114,7 @@ export default function ReportsPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-6 text-slate-800 sm:px-8">
       <div className="mx-auto max-w-5xl">
         <header className="rounded-2xl bg-[#173B70] p-6 text-white">
-          <Link href="/" className="text-sm text-blue-100">← Tableau de bord</Link>
+          <Link href="/boutique" className="text-sm text-blue-100">← Tableau de bord</Link>
           <h1 className="mt-3 text-2xl font-extrabold">Rapports et rentabilité</h1>
           <p className="mt-2 text-sm text-blue-100">Vue globale des ventes, marges, dépenses et encaissements enregistrés.</p>
         </header>

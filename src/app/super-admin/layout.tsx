@@ -27,7 +27,7 @@ export default async function SuperAdminLayout({
           <p className="mt-3 text-sm text-slate-600">
             Ce compte n’est pas autorisé à accéder à l’administration générale de BoutiquePro.
           </p>
-          <Link href="/" className="mt-5 inline-block rounded-xl bg-[#173B70] px-4 py-3 text-sm font-bold text-white">
+          <Link href="/boutique" className="mt-5 inline-block rounded-xl bg-[#173B70] px-4 py-3 text-sm font-bold text-white">
             Retour à BoutiquePro
           </Link>
         </section>
