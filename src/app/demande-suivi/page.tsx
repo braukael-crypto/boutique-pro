@@ -26,7 +26,7 @@ export default async function DemandeSuiviPage() {
         {application.adminNote && <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Message de l'administration : {application.adminNote}</p>}
         <p className="mt-4 text-xs text-slate-400">Demande déposée le {new Date(application.createdAt).toLocaleDateString("fr-FR")}</p>
       </>}
-      <form action="/auth/signout" method="post" className="mt-6"><Link href="/" className="font-semibold text-[#173B70]">Retour au site public</Link></form>
+      <div className="mt-6"><Link href="/" className="font-semibold text-[#173B70]">Retour au site public</Link></div>
     </section>
   </main>;
 }
