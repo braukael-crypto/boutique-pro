@@ -134,10 +134,60 @@ export default function SettingsPage() {
 
   useEffect(() => {
     let active = true;
-    loadProfile()
-      .then((saved) => { if (active && saved) setProfile(saved); })
-      .catch(() => { if (active) setError("Impossible de charger les paramètres."); })
-      .finally(() => { if (active) setLoaded(true); });
+    async function initialize() {
+      let local: StoreProfile | undefined;
+      try {
+        local = await loadProfile();
+      } catch {
+        if (active) setError("Impossible de lire les paramètres locaux.");
+      }
+
+      try {
+        const response = await fetch("/api/shop-profile", { cache: "no-store" });
+        if (!response.ok) throw new Error("Chargement distant indisponible.");
+        const payload = await response.json() as { profile: StoreProfile };
+        const remote = payload.profile;
+        const needsBackfill = Boolean(local && (
+          (!remote.phone && local.phone) ||
+          (!remote.whatsapp && local.whatsapp) ||
+          (!remote.address && local.address) ||
+          (!remote.logo && local.logo)
+        ));
+        let resolved = remote;
+        if (needsBackfill && local) {
+          const merged = {
+            ...remote,
+            phone: remote.phone || local.phone,
+            whatsapp: remote.whatsapp || local.whatsapp,
+            address: remote.address || local.address,
+            logo: remote.logo || local.logo,
+          };
+          const saveResponse = await fetch("/api/shop-profile", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(merged),
+          });
+          if (saveResponse.ok) {
+            const savedPayload = await saveResponse.json() as { profile: StoreProfile };
+            resolved = savedPayload.profile;
+          }
+        }
+        await saveProfile(resolved);
+        if (active) setProfile(resolved);
+      } catch {
+        if (local) {
+          if (active) {
+            setProfile(local);
+            setError("Paramètres affichés depuis cet appareil : synchronisation en ligne indisponible.");
+          }
+        } else if (active) {
+          setError("Impossible de charger les paramètres de la boutique.");
+        }
+      } finally {
+        if (active) setLoaded(true);
+      }
+    }
+    void initialize();
     return () => { active = false; };
   }, []);
 
@@ -183,9 +233,19 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       const normalized = { ...profile, name: profile.name.trim(), phone: profile.phone.trim(), whatsapp: profile.whatsapp.trim(), address: profile.address.trim() };
-      await saveProfile(normalized);
-      setProfile(normalized);
-      setSuccess("Paramètres de la boutique enregistrés avec succès.");
+      const response = await fetch("/api/shop-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(normalized),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(payload.error || "Enregistrement en ligne impossible.");
+      }
+      const payload = await response.json() as { profile: StoreProfile };
+      await saveProfile(payload.profile);
+      setProfile(payload.profile);
+      setSuccess("Paramètres enregistrés dans Supabase et synchronisés sur vos appareils.");
     } catch {
       setError("Impossible d'enregistrer les paramètres sur cet appareil.");
     } finally {
@@ -221,7 +281,7 @@ export default function SettingsPage() {
           <div className="mt-5">
             <p className="text-sm font-semibold">Logo de la boutique</p>
             <input type="file" accept="image/*" onChange={handleLogo} className="mt-2 block w-full text-sm" />
-            <p className="mt-1 text-xs text-slate-500">Image de 1 Mo maximum. Le logo reste enregistré sur cet appareil.</p>
+            <p className="mt-1 text-xs text-slate-500">Image de 1 Mo maximum. Le logo est synchronisé avec la boutique.</p>
             {profile.logo && <div className="mt-3 flex items-center gap-4"><Image src={profile.logo} alt="Aperçu du logo" width={80} height={80} unoptimized className="h-20 w-20 rounded-xl border object-contain p-2" /><button type="button" onClick={() => setProfile((current) => ({ ...current, logo: undefined }))} className="text-sm font-semibold text-red-600">Supprimer le logo</button></div>}
           </div>
           <button type="button" disabled={saving} onClick={handleSave} className="mt-6 w-full rounded-xl bg-[#173B70] p-4 font-bold text-white disabled:opacity-50">{saving ? "Enregistrement..." : "Enregistrer les paramètres"}</button>
@@ -246,7 +306,7 @@ export default function SettingsPage() {
           {error && <p className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}
           {success && <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{success}</p>}
         </section>
-        <p className="mt-5 text-center text-xs text-slate-400">Ces informations sont actuellement stockées localement sur cet appareil.</p>
+        <p className="mt-5 text-center text-xs text-slate-400">Ces informations sont enregistrées dans la boutique et partagées entre ses appareils.</p>
       </div>
     </main>
   );
