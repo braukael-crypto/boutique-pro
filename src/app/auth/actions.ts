@@ -6,7 +6,7 @@ import { randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 
 function safeNextPath(value: FormDataEntryValue | null) {
-  const path = typeof value === "string" ? value : "/";
+  const path = typeof value === "string" ? value : "/boutique";
   return path.startsWith("/") && !path.startsWith("//") ? path : "/";
 }
 
