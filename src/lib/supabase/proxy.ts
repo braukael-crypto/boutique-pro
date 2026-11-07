@@ -22,8 +22,9 @@ export async function updateSession(request: NextRequest) {
   const { data, error } = await supabase.auth.getClaims();
   const claims = data?.claims;
   const pathname = request.nextUrl.pathname;
+  const isPasswordRecoveryRoute = pathname === "/mot-de-passe-oublie" || pathname === "/reinitialiser-mot-de-passe";
   const isPublicRoute = pathname === "/" || pathname === "/connexion" || pathname === "/inscription" ||
-    pathname === "/inscription/verification" || pathname.startsWith("/auth/");
+    pathname === "/inscription/verification" || pathname.startsWith("/auth/") || isPasswordRecoveryRoute;
   if (error || !claims) {
     if (!isPublicRoute) {
       const destination = request.nextUrl.clone();
@@ -33,6 +34,9 @@ export async function updateSession(request: NextRequest) {
     }
     return response;
   }
+
+  // Password recovery must remain accessible regardless of the current session or shop membership.
+  if (isPasswordRecoveryRoute) return response;
 
   if (pathname === "/connexion" || pathname === "/inscription") {
     const { data: membership } = await supabase.from("shop_memberships").select("shopId").limit(1).maybeSingle();
