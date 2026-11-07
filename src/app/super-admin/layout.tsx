@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
-
 
 export default async function SuperAdminLayout({
   children,
@@ -27,9 +27,9 @@ export default async function SuperAdminLayout({
           <p className="mt-3 text-sm text-slate-600">
             Ce compte n’est pas autorisé à accéder à l’administration générale de BoutiquePro.
           </p>
-          <a href="/" className="mt-5 inline-block rounded-xl bg-[#173B70] px-4 py-3 text-sm font-bold text-white">
+          <Link href="/" className="mt-5 inline-block rounded-xl bg-[#173B70] px-4 py-3 text-sm font-bold text-white">
             Retour à BoutiquePro
-          </a>
+          </Link>
         </section>
       </main>
     );
