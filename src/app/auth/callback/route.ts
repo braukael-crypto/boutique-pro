@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -21,6 +22,12 @@ export async function GET(request: NextRequest) {
 
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   if (userError || !user) return NextResponse.redirect(new URL("/connexion?erreur=Veuillez vous connecter.", request.url));
+
+  // Le Super Admin ne doit jamais passer par le parcours de création d'une boutique.
+  if (isSuperAdmin(user)) {
+    return NextResponse.redirect(new URL("/super-admin", request.url));
+  }
+
   const { data: memberships, error: membershipError } = await supabase.from("shop_memberships").select("shopId").eq("userId", user.id).limit(1);
   if (membershipError) return NextResponse.redirect(new URL("/connexion?erreur=Impossible de vérifier votre accès. Contactez le support.", request.url));
   if (memberships?.length) return NextResponse.redirect(new URL("/boutique", request.url));
