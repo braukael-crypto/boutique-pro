@@ -1,116 +1,27 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { signOutAction } from "@/app/auth/actions";
+import { reviewApplicationAction } from "@/app/super-admin/actions";
 import { createSuperAdminClient } from "@/lib/supabase/admin";
-
-// Cette page utilise la session et les données serveur : elle doit être rendue à la demande.
 export const instant = false;
-
-export default async function SuperAdminPage() {
-  await connection();
-
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  let shops: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    phone: string | null;
-    whatsapp: string | null;
-    address: string | null;
-    currency: string;
-    createdAt: string;
-  }> = [];
-  let loadError = "";
-  let applications: Array<{ id: string; shopName: string; contactName: string; phone: string; email: string; address: string | null; plan: string; status: string; createdAt: string }> = [];
-
-  if (!serviceKey) {
-    loadError = "La clé serveur Supabase manque. Ajoutez SUPABASE_SERVICE_ROLE_KEY dans .env.local (et dans l’hébergement).";
-  } else {
-    const supabase = createSuperAdminClient();
-    const { data, error } = await supabase
-      .from("shops")
-      .select("id,name,slug,phone,whatsapp,address,currency,createdAt")
-      .order("createdAt", { ascending: false });
-
-    if (error) {
-      loadError = "Impossible de charger les boutiques. Vérifiez la configuration serveur et les droits de la base.";
-    } else {
-      shops = data ?? [];
-      const { data: applicationData, error: applicationError } = await supabase
-        .from("shop_applications")
-        .select("id,shopName,contactName,phone,email,address,plan,status,createdAt")
-        .order("createdAt", { ascending: false });
-      if (applicationError) {
-        loadError = "La table des demandes n’est pas encore installée. Appliquez la migration shop_applications dans Supabase.";
-      } else {
-        applications = applicationData ?? [];
-      }
-    }
-  }
-
-  return (
-    <main className="min-h-screen bg-slate-100 p-4 text-slate-800 sm:p-8">
-      <div className="mx-auto max-w-6xl">
-        <header className="rounded-2xl bg-[#173B70] p-6 text-white shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-200">CMR · Administration centrale</p>
-              <h1 className="mt-2 text-3xl font-extrabold">BoutiquePro Super Admin</h1>
-              <p className="mt-2 text-sm text-blue-100">Gestion centrale des boutiques de la plateforme.</p>
-            </div>
-            <form action={signOutAction}>
-              <button className="rounded-xl border border-white/40 px-4 py-2 text-sm font-semibold text-white">Déconnexion</button>
-            </form>
-          </div>
-        </header>
-
-        <section className="mt-6">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-bold">Boutiques inscrites</h2>
-              <p className="mt-1 text-sm text-slate-500">Vue globale des boutiques enregistrées dans BoutiquePro.</p>
-            </div>
-            <p className="rounded-xl bg-white px-4 py-2 text-sm font-bold shadow-sm">{shops.length} boutique(s)</p>
-          </div>
-
-          {loadError ? (
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">
-              <p className="font-bold">Configuration nécessaire</p>
-              <p className="mt-2">{loadError}</p>
-              <p className="mt-2">Cette clé est strictement réservée au serveur. Ne la placez jamais dans une variable NEXT_PUBLIC et ne la partagez pas.</p>
-            </div>
-          ) : shops.length === 0 ? (
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-              Aucune boutique n’est encore enregistrée.
-            </div>
-          ) : (
-            <div className="mt-4 grid gap-4">
-              {shops.map((shop) => (
-                <article key={shop.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-lg font-bold">{shop.name}</h3>
-                      <p className="text-sm text-slate-500">/{shop.slug}</p>
-                    </div>
-                    <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">Enregistrée</span>
-                  </div>
-                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                    <div><dt className="text-slate-500">Téléphone</dt><dd className="font-medium">{shop.phone || "Non renseigné"}</dd></div>
-                    <div><dt className="text-slate-500">WhatsApp</dt><dd className="font-medium">{shop.whatsapp || "Non renseigné"}</dd></div>
-                    <div><dt className="text-slate-500">Adresse</dt><dd className="font-medium">{shop.address || "Non renseignée"}</dd></div>
-                    <div><dt className="text-slate-500">Devise</dt><dd className="font-medium">{shop.currency}</dd></div>
-                    <div><dt className="text-slate-500">Inscription</dt><dd className="font-medium">{new Date(shop.createdAt).toLocaleDateString("fr-FR")}</dd></div>
-                  </dl>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <footer className="mt-8 flex gap-4 text-sm">
-          <Link href="/boutique" className="font-semibold text-[#173B70]">← Espace boutique</Link>
-        </footer>
-      </div>
-    </main>
-  );
+type Shop={id:string;name:string;slug:string;phone:string|null;whatsapp:string|null;address:string|null;currency:string;createdAt:string};
+type Application={id:string;shopName:string;contactName:string;phone:string;email:string;address:string|null;plan:string;status:string;adminNote:string|null;createdAt:string};
+const plans:Record<string,string>={ESSENTIAL:"Essentiel",STANDARD:"Standard",PREMIUM:"Premium",ENTERPRISE:"Entreprise"};
+const statuses:Record<string,string>={PENDING:"En attente",UNDER_REVIEW:"En étude",REJECTED:"Refusée / à compléter",APPROVED:"Approuvée"};
+export default async function SuperAdminPage({searchParams}:{searchParams:Promise<{erreur?:string;message?:string}>}){
+ await connection(); const params=await searchParams; let shops:Shop[]=[]; let applications:Application[]=[]; let loadError="";
+ if(!process.env.SUPABASE_SERVICE_ROLE_KEY) loadError="La clé serveur Supabase manque. Vérifiez SUPABASE_SERVICE_ROLE_KEY.";
+ else {const admin=createSuperAdminClient(); const [s,a]=await Promise.all([admin.from("shops").select("id,name,slug,phone,whatsapp,address,currency,createdAt").order("createdAt",{ascending:false}),admin.from("shop_applications").select("id,shopName,contactName,phone,email,address,plan,status,adminNote,createdAt").order("createdAt",{ascending:false})]); if(s.error)loadError="Impossible de charger les boutiques.";else shops=s.data??[];if(a.error)loadError="Impossible de charger les demandes. Vérifiez la migration shop_applications.";else applications=a.data??[];}
+ const pending=applications.filter(a=>["PENDING","UNDER_REVIEW"].includes(a.status)).length;
+ return <main className="min-h-screen bg-slate-100 p-4 text-slate-800 sm:p-8"><div className="mx-auto max-w-6xl">
+ <header className="rounded-2xl bg-[#173B70] p-6 text-white shadow-sm"><div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-teal-200">CMR · Administration centrale</p><h1 className="mt-2 text-3xl font-extrabold">BoutiquePro Super Admin</h1><p className="mt-2 text-sm text-blue-100">Gestion centrale des boutiques et des demandes.</p></div><form action={signOutAction}><button className="rounded-xl border border-white/40 px-4 py-2 text-sm font-semibold text-white">Déconnexion</button></form></div></header>
+ {params.erreur&&<p role="alert" className="mt-5 rounded-xl bg-red-50 p-4 text-sm text-red-800">{params.erreur}</p>}{params.message&&<p role="status" className="mt-5 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800">{params.message}</p>}{loadError&&<p className="mt-5 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{loadError}</p>}
+ <section className="mt-7"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-bold">Demandes d’ouverture</h2><p className="mt-1 text-sm text-slate-500">Étudiez les dossiers avant activation.</p></div><p className="rounded-xl bg-white px-4 py-2 text-sm font-bold">{pending} demande(s) à traiter</p></div>
+ {applications.length===0?<p className="mt-4 rounded-2xl bg-white p-5 text-sm text-slate-600">Aucune demande enregistrée.</p>:<div className="mt-4 grid gap-4">{applications.map(a=><article key={a.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap justify-between gap-3"><div><h3 className="text-lg font-bold">{a.shopName}</h3><p className="text-sm text-slate-500">{a.contactName} · {a.email}</p></div><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-800">{statuses[a.status]??a.status}</span></div>
+ <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2"><div><dt className="text-slate-500">Téléphone / WhatsApp</dt><dd>{a.phone}</dd></div><div><dt className="text-slate-500">Formule</dt><dd>{plans[a.plan]??a.plan}</dd></div><div><dt className="text-slate-500">Adresse</dt><dd>{a.address||"Non renseignée"}</dd></div><div><dt className="text-slate-500">Date</dt><dd>{new Date(a.createdAt).toLocaleDateString("fr-FR")}</dd></div></dl>
+ {a.adminNote&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Note : {a.adminNote}</p>}
+ {["PENDING","UNDER_REVIEW"].includes(a.status)&&<form action={reviewApplicationAction} className="mt-5 grid gap-3 border-t pt-4"><input type="hidden" name="applicationId" value={a.id}/><label className="text-sm font-semibold">Note au demandeur<textarea name="adminNote" maxLength={1000} rows={2} defaultValue={a.adminNote??""} className="mt-1 w-full rounded-xl border border-slate-300 p-3 font-normal"/></label><div className="flex flex-wrap gap-2"><button name="decision" value="UNDER_REVIEW" className="rounded-lg border px-3 py-2 text-sm font-semibold">Mettre en étude</button><button name="decision" value="REJECTED" className="rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700">Refuser / demander correction</button><button name="decision" value="APPROVED" className="rounded-lg bg-[#173B70] px-3 py-2 text-sm font-semibold text-white">Approuver et créer la boutique</button></div></form>}
+ </article>)}</div>}</section>
+ <section className="mt-9"><div className="flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-bold">Boutiques inscrites</h2><p className="mt-1 text-sm text-slate-500">Espaces commerciaux créés.</p></div><p className="rounded-xl bg-white px-4 py-2 text-sm font-bold">{shops.length} boutique(s)</p></div>{shops.length>0&&<div className="mt-4 grid gap-4">{shops.map(s=><article key={s.id} className="rounded-2xl border bg-white p-5 shadow-sm"><h3 className="text-lg font-bold">{s.name}</h3><p className="text-sm text-slate-500">/{s.slug}</p><dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2"><div>Téléphone : {s.phone||"Non renseigné"}</div><div>WhatsApp : {s.whatsapp||"Non renseigné"}</div><div>Adresse : {s.address||"Non renseignée"}</div><div>Devise : {s.currency}</div><div>Inscription : {new Date(s.createdAt).toLocaleDateString("fr-FR")}</div></dl></article>)}</div>}</section>
+ <footer className="mt-8 text-sm"><Link href="/boutique" className="font-semibold text-[#173B70]">← Espace boutique</Link></footer></div></main>;
 }
