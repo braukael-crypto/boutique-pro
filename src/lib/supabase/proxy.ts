@@ -1,5 +1,6 @@
 import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -38,19 +39,45 @@ export async function updateSession(request: NextRequest) {
   // Password recovery must remain accessible regardless of the current session or shop membership.
   if (isPasswordRecoveryRoute) return response;
 
+  // Verify the authenticated user before applying shop-membership restrictions.
+  const { data: { user } } = await supabase.auth.getUser();
+  const superAdmin = isSuperAdmin(user);
+
   if (pathname === "/connexion" || pathname === "/inscription") {
-    const { data: membership } = await supabase.from("shop_memberships").select("shopId").limit(1).maybeSingle();
     const destination = request.nextUrl.clone();
-    destination.pathname = membership?.shopId ? "/boutique" : "/demande-suivi";
+
+    if (superAdmin) {
+      destination.pathname = "/super-admin";
+    } else {
+      const { data: membership } = await supabase
+        .from("shop_memberships")
+        .select("shopId")
+        .limit(1)
+        .maybeSingle();
+
+      destination.pathname = membership?.shopId ? "/boutique" : "/demande-suivi";
+    }
+
     destination.search = "";
     return NextResponse.redirect(destination);
   }
 
-  // Public pages remain accessible to authenticated applicants as well.
-  // In particular, the public homepage must not be trapped behind the pending-application gate.
-  if (pathname === "/" || pathname === "/inscription/verification") return response;
+  // Public pages and Supabase authentication callbacks remain accessible.
+  if (
+    pathname === "/" ||
+    pathname === "/inscription/verification" ||
+    pathname.startsWith("/auth/")
+  ) return response;
 
-  // Existing Super Admins are not shop members; keep their separate console accessible.
+  // Keep the Super Admin in the private administration area, not the client area.
+  if (superAdmin && pathname !== "/super-admin" && !pathname.startsWith("/super-admin/")) {
+    const destination = request.nextUrl.clone();
+    destination.pathname = "/super-admin";
+    destination.search = "";
+    return NextResponse.redirect(destination);
+  }
+
+  // The administration layout performs its own authorization check.
   if (pathname === "/super-admin" || pathname.startsWith("/super-admin/")) return response;
 
   // Authenticated applicants may only view their application status until a shop membership is granted.

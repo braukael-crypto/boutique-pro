@@ -1,23 +1,46 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { isSuperAdmin } from "@/lib/auth/super-admin";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-
-function safeNextPath(value: FormDataEntryValue | null) {
-  const path = typeof value === "string" ? value : "/boutique";
-  return path.startsWith("/") && !path.startsWith("//") ? path : "/boutique";
-}
 
 export async function signInAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
-  const next = safeNextPath(formData.get("next"));
-  if (!email || !password) redirect("/connexion?erreur=Veuillez renseigner votre adresse e-mail et votre mot de passe.");
+
+  if (!email || !password) {
+    redirect("/connexion?erreur=Veuillez renseigner votre adresse e-mail et votre mot de passe.");
+  }
+
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) redirect("/connexion?erreur=Identifiants invalides ou compte non confirmé.");
-  redirect(next);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error || !data.user) {
+    redirect("/connexion?erreur=Identifiants invalides ou compte non confirmé.");
+  }
+
+  if (isSuperAdmin(data.user)) {
+    redirect("/super-admin");
+  }
+
+  const { data: membership, error: membershipError } = await supabase
+    .from("shop_memberships")
+    .select("shopId")
+    .eq("userId", data.user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (membershipError) {
+    console.error("[BoutiquePro login] Membership lookup failed", membershipError);
+    redirect("/connexion?erreur=Impossible de vérifier votre accès. Réessayez.");
+  }
+
+  if (membership?.shopId) {
+    redirect("/boutique");
+  }
+
+  redirect("/demande-suivi");
 }
 
 export async function requestPasswordResetAction(formData: FormData) {
