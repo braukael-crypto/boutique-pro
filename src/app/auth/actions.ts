@@ -21,7 +21,8 @@ export async function signInAction(formData: FormData) {
   }
 
   if (isSuperAdmin(data.user)) {
-    redirect("/super-admin");
+    await supabase.auth.signOut();
+    redirect("/connexion?erreur=Ce compte doit utiliser la connexion administration CMR GROUP.");
   }
 
   const { data: membership, error: membershipError } = await supabase
