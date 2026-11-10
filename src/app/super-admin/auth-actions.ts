@@ -30,3 +30,26 @@ export async function signInSuperAdminAction(formData: FormData) {
 
   redirect("/super-admin");
 }
+
+export async function signOutSuperAdminAction() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user || !isSuperAdmin(user)) {
+    await supabase.auth.signOut();
+    redirect("/admin-connexion");
+  }
+
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    console.error("[Super Admin logout] Failed:", error);
+    redirect("/admin-connexion?erreur=La déconnexion a échoué. Réessayez.");
+  }
+
+  redirect("/admin-connexion");
+}
