@@ -1,9 +1,17 @@
 import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isSuperAdmin } from "@/lib/auth/super-admin";
+import {
+  getUnauthenticatedRedirectPath,
+  isPasswordRecoveryRoute,
+  isProxyAuthExempt,
+} from "@/lib/supabase/proxy-policy";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const pathname = request.nextUrl.pathname;
+
+  if (isProxyAuthExempt(pathname)) return response;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -32,34 +40,19 @@ export async function updateSession(request: NextRequest) {
 
   const { data, error } = await supabase.auth.getClaims();
   const claims = data?.claims;
-  const pathname = request.nextUrl.pathname;
-
-  const isPasswordRecoveryRoute =
-    pathname === "/mot-de-passe-oublie" ||
-    pathname === "/reinitialiser-mot-de-passe";
-
-  const isPublicRoute =
-    pathname === "/" ||
-    pathname === "/connexion" ||
-    pathname === "/admin-connexion" ||
-    pathname === "/inscription" ||
-    pathname === "/inscription/verification" ||
-    pathname.startsWith("/auth/") ||
-    isPasswordRecoveryRoute;
 
   if (error || !claims) {
-    if (!isPublicRoute) {
+    const redirectPath = getUnauthenticatedRedirectPath(pathname);
+    if (redirectPath) {
       const destination = request.nextUrl.clone();
-      destination.pathname = pathname.startsWith("/super-admin")
-        ? "/admin-connexion"
-        : "/connexion";
+      destination.pathname = redirectPath;
       destination.search = "";
       return NextResponse.redirect(destination);
     }
     return response;
   }
 
-  if (isPasswordRecoveryRoute) return response;
+  if (isPasswordRecoveryRoute(pathname)) return response;
 
   const { data: { user } } = await supabase.auth.getUser();
   const superAdmin = isSuperAdmin(user);

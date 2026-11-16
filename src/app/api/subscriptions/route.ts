@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createSuperAdminClient } from "@/lib/supabase/admin";
+import { canManageBilling } from "@/lib/subscriptions/policy";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -37,7 +38,7 @@ export async function GET() {
       return jsonError("Aucune boutique autorisée trouvée.", 403);
     }
 
-    if (membership.role !== "OWNER" && membership.role !== "MANAGER") {
+    if (!canManageBilling(membership.role)) {
       return jsonError("Accès réservé au propriétaire ou à l'administration de la boutique.", 403);
     }
 
@@ -67,7 +68,7 @@ export async function GET() {
           )
           .eq("shopId", shopId)
           .order("createdAt", { ascending: false })
-          .limit(10),
+          .limit(50),
       ]);
 
     if (plansResult.error) {

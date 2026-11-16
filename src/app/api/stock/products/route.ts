@@ -1,37 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireShopWriteAccess, subscriptionWriteDeniedResponse } from "@/lib/subscriptions/server";
 
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
-
-async function getAuthorizedShop() {
-  const supabase = await createClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return { supabase, shopId: null, error: "Authentification requise." };
-  }
-
-  const { data: membership, error } = await supabase
-    .from("shop_memberships")
-    .select("shopId")
-    .eq("userId", user.id)
-    .order("createdAt", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !membership?.shopId) {
-    return { supabase, shopId: null, error: "Aucune boutique autorisée n'a été trouvée." };
-  }
-
-  return { supabase, shopId: membership.shopId as string, error: null };
-}
-
 export async function POST(request: NextRequest) {
-  const auth = await getAuthorizedShop();
-  if (auth.error || !auth.shopId) return jsonError(auth.error || "Accès refusé.", 401);
+  const auth = await requireShopWriteAccess({ membershipMissingStatus: 401 });
+  if (!auth.ok) return subscriptionWriteDeniedResponse(auth);
 
   let body: unknown;
   try {

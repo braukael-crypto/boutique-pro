@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireShopWriteAccess, subscriptionWriteDeniedResponse } from "@/lib/subscriptions/server";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -53,8 +54,8 @@ export async function GET() {
 }
 
 export async function PATCH(request: NextRequest) {
-  const auth = await getShopContext();
-  if (auth.error || !auth.shopId) return jsonError(auth.error || "Accès refusé.", 401);
+  const auth = await requireShopWriteAccess({ membershipMissingStatus: 401 });
+  if (!auth.ok) return subscriptionWriteDeniedResponse(auth);
   if (auth.role !== "OWNER" && auth.role !== "MANAGER") {
     return jsonError("Seul le propriétaire ou un responsable peut modifier ces paramètres.", 403);
   }

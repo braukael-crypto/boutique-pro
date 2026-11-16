@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
+import { requireShopWriteAccess, subscriptionWriteDeniedResponse } from "@/lib/subscriptions/server";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -39,8 +40,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await getAuthorizedShop();
-  if (auth.error || !auth.shopId) return jsonError(auth.error || "Accès refusé.", 401);
+  const auth = await requireShopWriteAccess({ membershipMissingStatus: 401 });
+  if (!auth.ok) return subscriptionWriteDeniedResponse(auth);
   let body: unknown;
   try { body = await request.json(); } catch { return jsonError("Corps de requête invalide.", 400); }
   if (!body || typeof body !== "object") return jsonError("Données du fournisseur invalides.", 400);

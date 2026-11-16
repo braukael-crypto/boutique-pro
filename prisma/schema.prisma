@@ -37,13 +37,15 @@ model Shop {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  memberships    ShopMembership[]
-  products       Product[]
-  customers      Customer[]
-  sales          Sale[]
-  stockMovements StockMovement[]
-  expenses       Expense[]
-  suppliers      Supplier[]
+  memberships          ShopMembership[]
+  products             Product[]
+  customers            Customer[]
+  sales                Sale[]
+  stockMovements       StockMovement[]
+  expenses             Expense[]
+  suppliers            Supplier[]
+  subscription         Subscription?
+  subscriptionPayments SubscriptionPayment[]
 
   @@map("shops")
 }
@@ -230,4 +232,102 @@ model Supplier {
   @@index([shopId, name])
   @@index([shopId, phone])
   @@map("suppliers")
+}
+model ShopApplication {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @unique @db.Uuid
+  shopName    String
+  contactName String
+  phone       String
+  email       String
+  address     String?
+  plan        String
+  status      String    @default("PENDING")
+  adminNote   String?
+  reviewedAt  DateTime? @db.Timestamptz
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  updatedAt   DateTime  @default(now()) @updatedAt @db.Timestamptz
+
+  @@index([status, createdAt(sort: Desc)], map: "shop_applications_status_created_idx")
+  @@map("shop_applications")
+}
+
+model SubscriptionPlan {
+  code          String   @id
+  name          String
+  monthlyAmount Decimal  @db.Decimal(14, 2)
+  currency      String   @default("XOF")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now()) @db.Timestamptz
+  updatedAt     DateTime @default(now()) @updatedAt @db.Timestamptz
+
+  subscriptions        Subscription[]
+  subscriptionPayments SubscriptionPayment[]
+
+  @@map("subscription_plans")
+}
+
+model Subscription {
+  id                 String    @id @default(uuid()) @db.Uuid
+  shopId             String    @unique @db.Uuid
+  plan               String
+  status             String    @default("TRIALING")
+  billingInterval    String    @default("MONTHLY")
+  currency           String    @default("XOF")
+  trialStartedAt     DateTime? @db.Timestamptz
+  trialEndsAt        DateTime? @db.Timestamptz
+  currentPeriodStart DateTime? @db.Timestamptz
+  currentPeriodEnd   DateTime? @db.Timestamptz
+  createdAt          DateTime  @default(now()) @db.Timestamptz
+  updatedAt          DateTime  @default(now()) @updatedAt @db.Timestamptz
+
+  shop     Shop                  @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  planRef  SubscriptionPlan      @relation(fields: [plan], references: [code])
+  payments SubscriptionPayment[]
+
+  @@index([status, currentPeriodEnd], map: "subscriptions_status_end_idx")
+  @@map("subscriptions")
+}
+
+model SubscriptionPayment {
+  id                String    @id @default(uuid()) @db.Uuid
+  shopId            String    @db.Uuid
+  subscriptionId    String    @db.Uuid
+  plan              String
+  provider          String
+  status            String    @default("PENDING")
+  amount            Decimal   @db.Decimal(14, 2)
+  currency          String    @default("XOF")
+  providerReference String?
+  providerPaymentId String?
+  idempotencyKey    String
+  paidAt            DateTime? @db.Timestamptz
+  periodStart       DateTime? @db.Timestamptz
+  periodEnd         DateTime? @db.Timestamptz
+  createdAt         DateTime  @default(now()) @db.Timestamptz
+  updatedAt         DateTime  @default(now()) @updatedAt @db.Timestamptz
+
+  shop         Shop             @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  subscription Subscription     @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  planRef      SubscriptionPlan @relation(fields: [plan], references: [code])
+  events       PaymentEvent[]
+
+  @@unique([shopId, idempotencyKey], map: "subscription_payments_shopId_idempotencyKey_key")
+  @@index([shopId, createdAt(sort: Desc)], map: "subscription_payments_shop_date_idx")
+  @@map("subscription_payments")
+}
+
+model PaymentEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  provider    String
+  eventId     String
+  paymentId   String?   @db.Uuid
+  payload     Json
+  processedAt DateTime? @db.Timestamptz
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+
+  payment SubscriptionPayment? @relation(fields: [paymentId], references: [id])
+
+  @@unique([provider, eventId], map: "payment_events_provider_eventId_key")
+  @@map("payment_events")
 }

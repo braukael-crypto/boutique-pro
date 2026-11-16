@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireShopWriteAccess, subscriptionWriteDeniedResponse } from "@/lib/subscriptions/server";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -62,8 +63,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await getAuthorizedShop();
-  if (auth.error || !auth.shopId) return jsonError(auth.error || "Accès refusé.", 401);
+  const auth = await requireShopWriteAccess({ membershipMissingStatus: 401 });
+  if (!auth.ok) return subscriptionWriteDeniedResponse(auth);
 
   let body: unknown;
   try { body = await request.json(); } catch { return jsonError("Corps de requête invalide.", 400); }
@@ -96,11 +97,12 @@ export async function POST(request: NextRequest) {
   if (error) {
     console.error("[credit-payments] save failed:", error);
     const status = error.code === "42501" ? 403 : error.code === "P0002" ? 404 : error.code === "22023" ? 400 : 500;
-    const message = error.message.includes("exceeds outstanding balance")
+    const errorMessage = error.message ?? "";
+    const message = errorMessage.includes("exceeds outstanding balance")
       ? "Le montant dépasse le solde restant dû."
-      : error.message.includes("not a credit sale")
+      : errorMessage.includes("not a credit sale")
         ? "Cette vente n'est pas une vente à crédit."
-        : error.message.includes("not found")
+        : errorMessage.includes("not found")
           ? "La vente à crédit est introuvable dans cette boutique."
           : "Impossible d'enregistrer le remboursement dans Supabase.";
     return jsonError(message, status);

@@ -14,6 +14,7 @@ const modules = [
   { icon: "🚚", label: "Fournisseurs", href: "/fournisseurs" },
   { icon: "💰", label: "Dépenses", href: "/depenses" },
   { icon: "📊", label: "Rapports", href: "/rapports" },
+  { icon: "🧾", label: "Abonnement", href: "/abonnements" },
   { icon: "⚙️", label: "Paramètres", href: "/parametres" },
 ];
 

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
+import { requireShopWriteAccess, subscriptionWriteDeniedResponse } from "@/lib/subscriptions/server";
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -45,8 +46,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await getAuthorizedShop();
-  if (auth.error || !auth.shopId) return jsonError(auth.error || "Accès refusé.", 401);
+  const auth = await requireShopWriteAccess({ membershipMissingStatus: 401 });
+  if (!auth.ok) return subscriptionWriteDeniedResponse(auth);
 
   let body: unknown;
   try {
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
 
   if (lookupError) {
     console.error("[clients] Supabase lookup failed:", lookupError);
-    return jsonError("Erreur Supabase " + (lookupError.code || "inconnue") + ": " + lookupError.message, 500);
+    return jsonError("Erreur Supabase " + (lookupError.code || "inconnue") + ": " + (lookupError.message || "erreur inconnue"), 500);
   }
 
   const payload = { name, phone, address: address || null, updatedAt: new Date().toISOString() };
