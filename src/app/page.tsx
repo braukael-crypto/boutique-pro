@@ -39,12 +39,12 @@ export default function PublicHomePage() {
               <Link href="/inscription" className="rounded-xl bg-[#12A89D] px-6 py-3.5 font-bold text-white shadow-lg shadow-black/10">Demander l’ouverture de ma boutique</Link>
               <a href="#fonctionnalites" className="rounded-xl border border-white/30 px-6 py-3.5 font-bold text-white">Découvrir les fonctionnalités</a>
             </div>
-            <p className="mt-4 text-xs text-blue-200">L'ouverture de nouveaux comptes sera proposée après mise en place du parcours de demande et de validation.</p>
+            <p className="mt-4 text-xs text-blue-200">L&apos;ouverture de nouveaux comptes sera proposée après mise en place du parcours de demande et de validation.</p>
           </div>
           <div className="rounded-3xl border border-white/15 bg-white/10 p-4 shadow-2xl backdrop-blur">
             <div className="rounded-2xl bg-white p-5 text-slate-800">
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Aperçu de l'espace boutique</p><p className="mt-1 text-xl font-extrabold text-[#173B70]">Tableau de bord</p></div>
+                <div><p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Aperçu de l&apos;espace boutique</p><p className="mt-1 text-xl font-extrabold text-[#173B70]">Tableau de bord</p></div>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">En activité</span>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-3">
@@ -74,7 +74,7 @@ export default function PublicHomePage() {
 
       <section className="mx-auto max-w-7xl px-5 py-16 text-center sm:py-20">
         <h2 className="text-3xl font-black text-[#173B70] sm:text-4xl">Prêt à mieux organiser votre commerce ?</h2>
-        <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">Connectez-vous à votre espace si votre boutique dispose déjà d'un accès BoutiquePro.</p>
+        <p className="mx-auto mt-4 max-w-2xl leading-7 text-slate-600">Connectez-vous à votre espace si votre boutique dispose déjà d&apos;un accès BoutiquePro.</p>
         <div className="mt-7 flex flex-wrap justify-center gap-3"><Link href="/inscription" className="inline-flex rounded-xl bg-[#173B70] px-7 py-3.5 font-bold text-white">Demander l’ouverture</Link><Link href="/connexion" className="inline-flex rounded-xl border border-slate-300 px-7 py-3.5 font-bold text-[#173B70]">Déjà client ? Connexion</Link></div>
       </section>
 

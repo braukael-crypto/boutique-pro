@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "prisma generate && next build --webpack",
     "start": "next start",
     "lint": "eslint"
   },
@@ -14,7 +14,7 @@
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.1",
     "dotenv": "^16.6.1",
-    "next": "16.4.4",
+    "next": "16.4.6",
     "pg": "^8.16.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -27,7 +27,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.4.4",
+    "eslint-config-next": "16.4.6",
     "prisma": "^7.10.1",
     "tailwindcss": "^4",
     "typescript": "^5"

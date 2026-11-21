@@ -53,7 +53,7 @@ async function AdminLoginContent({ searchParams }: PageProps) {
           </label>
 
           <button className="w-full rounded-xl bg-[#173B70] px-4 py-3 font-bold text-white transition hover:bg-[#244f8d]">
-            Accéder à l'administration
+            Accéder à l&apos;administration
           </button>
         </form>
 

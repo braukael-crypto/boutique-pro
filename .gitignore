@@ -42,3 +42,6 @@ next-env.d.ts
 *.bak
 *.v3
 *.receipt-backup
+
+# Generated Prisma Client
+/src/generated/prisma/
