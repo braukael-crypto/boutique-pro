@@ -13,7 +13,7 @@ async function MotDePasseOublieContent({ searchParams }: PageProps) {
       <section className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
         <p className="text-sm font-bold uppercase tracking-wider text-[#12A89D]">BoutiquePro</p>
         <h1 className="mt-3 text-2xl font-extrabold">Mot de passe oublié</h1>
-        <p className="mt-2 text-sm text-slate-500">Saisissez l'adresse e-mail de votre compte. Nous vous enverrons un lien pour choisir un nouveau mot de passe.</p>
+        <p className="mt-2 text-sm text-slate-500">Saisissez l&apos;adresse e-mail de votre compte. Nous vous enverrons un lien pour choisir un nouveau mot de passe.</p>
         {params.erreur && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{params.erreur}</p>}
         {params.message && <p role="status" className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">{params.message}</p>}
         <form action={requestPasswordResetAction} className="mt-6 space-y-4">

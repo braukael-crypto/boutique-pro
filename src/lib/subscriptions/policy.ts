@@ -2,6 +2,13 @@ export function canManageBilling(role: unknown): role is "OWNER" | "MANAGER" {
   return role === "OWNER" || role === "MANAGER";
 }
 
+export function shouldFailPendingCheckoutAttempt(input: {
+  providerSessionCreated: boolean;
+  providerPaymentId: string | null | undefined;
+}) {
+  return !input.providerSessionCreated && !input.providerPaymentId;
+}
+
 export function subscriptionCycleIdempotencyKey(
   subscriptionId: string,
   currentPeriodEnd: string | null,

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createSuperAdminClient } from "@/lib/supabase/admin";
 import {
   canManageBilling,
+  shouldFailPendingCheckoutAttempt,
   subscriptionCycleIdempotencyKey,
 } from "@/lib/subscriptions/policy";
 import { createCheckoutSession, safeCheckoutUrl } from "@/lib/saspay";
@@ -217,8 +218,9 @@ export async function POST(request: NextRequest) {
   }
 
   // Create external checkout session only after local pending attempt is recorded (and protected against duplicates).
+  let session: Awaited<ReturnType<typeof createCheckoutSession>> | null = null;
   try {
-    const session = await createCheckoutSession({
+    session = await createCheckoutSession({
       amount,
       currency: "XOF",
       customerEmail: user.email,
@@ -250,9 +252,42 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ paymentId, checkoutUrl, amount, currency: "XOF", plan: plan.code });
   } catch (error) {
-    console.error("[subscriptions/checkout] SasPay session creation failed:",
-      error instanceof Error ? error.name : "unknown error");
-    // Local attempt remains PENDING without a confirmed provider session; user may retry later.
+    const errorName = error instanceof Error ? error.name : "unknown error";
+    console.error("[subscriptions/checkout] SasPay session creation failed:", errorName);
+    if (shouldFailPendingCheckoutAttempt({
+      providerSessionCreated: session !== null,
+      providerPaymentId: session?.id ?? null,
+    })) {
+      const { error: releaseError } = await admin
+        .from("subscription_payments")
+        .update({
+          status: "FAILED",
+          providerPaymentId: null,
+          updatedAt: new Date().toISOString(),
+        })
+        .eq("id", paymentId)
+        .eq("status", "PENDING");
+      if (releaseError) {
+        console.error("[subscriptions/checkout] failed attempt release failed:", releaseError.code);
+      } else {
+        const { error: eventError } = await admin.from("payment_events").insert({
+          provider: PROVIDER,
+          eventId: `local:checkout-session-creation-failed:${paymentId}:${randomUUID()}`,
+          paymentId,
+          payload: {
+            event: "checkout.session_creation_failed",
+            paymentReference: localReference,
+            error: errorName,
+          },
+          processedAt: new Date().toISOString(),
+        });
+        if (eventError) {
+          console.error("[subscriptions/checkout] failed attempt event insert failed:", eventError.code);
+        }
+      }
+    } else {
+      console.error("[subscriptions/checkout] provider session exists; local attempt remains pending");
+    }
     return jsonError("Impossible de démarrer le paiement SasPay. Le paiement reste non confirmé.", 502);
   }
 }

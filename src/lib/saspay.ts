@@ -1,6 +1,9 @@
 import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { assertSasPayConfiguration, SasPayConfigurationError } from "./saspay-environment.ts";
+
+export { SasPayConfigurationError };
 
 const SASPAY_BASE_URL = "https://api.saspay.me/api/v1";
 const SASPAY_WEBHOOK_TOLERANCE_SECONDS = 300;
@@ -66,12 +69,7 @@ export class SasPayRequestError extends Error {
 }
 
 export function getSasPaySecretKey() {
-  const key = process.env.SASPAY_SECRET_KEY?.trim();
-  if (!key) throw new Error("SASPAY_SECRET_KEY is not configured");
-  if (!(key.startsWith("sk_test_") || key.startsWith("sk_live_"))) {
-    throw new Error("SASPAY_SECRET_KEY must start with sk_test_ or sk_live_");
-  }
-  return key;
+  return assertSasPayConfiguration().secretKey;
 }
 
 export function getSasPayWebhookSecret() {

@@ -6,8 +6,8 @@ async function InscriptionContent({ searchParams }: PageProps) {
   const params = await searchParams;
   const field = "mt-1 w-full rounded-xl border border-slate-300 px-4 py-3 font-normal outline-none focus:border-[#12A89D]";
   return <main className="flex min-h-screen items-center justify-center bg-slate-50 p-5 text-slate-800"><section className="w-full max-w-xl rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
-    <p className="text-sm font-bold uppercase tracking-wider text-[#12A89D]">BoutiquePro</p><h1 className="mt-3 text-2xl font-extrabold">Demander l'ouverture de ma boutique</h1>
-    <p className="mt-2 text-sm text-slate-500">Remplissez ce formulaire. Votre dossier sera étudié par l'administration avant toute activation.</p>
+    <p className="text-sm font-bold uppercase tracking-wider text-[#12A89D]">BoutiquePro</p><h1 className="mt-3 text-2xl font-extrabold">Demander l&apos;ouverture de ma boutique</h1>
+    <p className="mt-2 text-sm text-slate-500">Remplissez ce formulaire. Votre dossier sera étudié par l&apos;administration avant toute activation.</p>
     {params.erreur && <p role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-700">{params.erreur}</p>}
     <form action={signUpAction} className="mt-6 grid gap-4 sm:grid-cols-2">
       <label className="text-sm font-semibold sm:col-span-2">Nom de la boutique<input name="shopName" minLength={2} maxLength={100} required className={field}/></label>

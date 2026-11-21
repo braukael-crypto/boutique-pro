@@ -23,10 +23,10 @@ export default async function DemandeSuiviPage() {
     <section className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-7 shadow-sm">
       <p className="text-sm font-bold uppercase tracking-wider text-[#12A89D]">BoutiquePro</p>
       <h1 className="mt-3 text-2xl font-extrabold">Suivi de ma demande</h1>
-      {error || !application ? <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Votre demande n'est pas encore visible. Si vous venez de confirmer votre e-mail, actualisez cette page dans quelques instants. Sinon, contactez le support.</p> : <>
+      {error || !application ? <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Votre demande n&apos;est pas encore visible. Si vous venez de confirmer votre e-mail, actualisez cette page dans quelques instants. Sinon, contactez le support.</p> : <>
         <div className="mt-5 rounded-2xl bg-slate-50 p-4"><p className="text-xs font-semibold uppercase text-slate-500">Boutique demandée</p><p className="mt-1 text-lg font-bold">{application.shopName}</p><p className="mt-2 text-sm text-slate-600">Formule : {labels[application.plan] ?? application.plan}</p></div>
-        <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4"><p className="font-bold text-[#173B70]">{statuses[application.status] ?? "En attente"}</p><p className="mt-2 text-sm text-slate-700">Votre espace commercial sera accessible uniquement après validation par l'administration.</p></div>
-        {application.adminNote && <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Message de l'administration : {application.adminNote}</p>}
+        <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4"><p className="font-bold text-[#173B70]">{statuses[application.status] ?? "En attente"}</p><p className="mt-2 text-sm text-slate-700">Votre espace commercial sera accessible uniquement après validation par l&apos;administration.</p></div>
+        {application.adminNote && <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Message de l&apos;administration : {application.adminNote}</p>}
         <p className="mt-4 text-xs text-slate-400">Demande déposée le {new Date(application.createdAt).toLocaleDateString("fr-FR")}</p>
       </>}
       <div className="mt-6"><Link href="/" className="font-semibold text-[#173B70]">Retour au site public</Link></div>
